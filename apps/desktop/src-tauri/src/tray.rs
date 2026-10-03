@@ -44,24 +44,43 @@ fn icon(enabled: bool) -> Image<'static> {
     }
 }
 
+fn menu_id(action: Action) -> String {
+    match serde_json::to_value(action) {
+        Ok(serde_json::Value::String(id)) => id,
+        _ => unreachable!("{action:?} serializes to a string"),
+    }
+}
+
 pub(crate) fn create_tray(app: &tauri::App) -> tauri::Result<()> {
     let toggle = CheckMenuItem::with_id(
         app,
-        "toggle",
+        menu_id(Action::Toggle),
         "Show clicks and keys",
         true,
         true,
         Some(TOGGLE_SHORTCUT),
     )?;
-    let settings = MenuItem::with_id(app, "open-settings", "Settings…", true, None::<&str>)?;
+    let settings = MenuItem::with_id(
+        app,
+        menu_id(Action::OpenSettings),
+        "Settings…",
+        true,
+        None::<&str>,
+    )?;
     let request_key_access = MenuItem::with_id(
         app,
-        "request-key-access",
+        menu_id(Action::RequestKeyAccess),
         "Allow key display…",
         true,
         None::<&str>,
     )?;
-    let quit = MenuItem::with_id(app, "quit", "Quit Glassview", true, None::<&str>)?;
+    let quit = MenuItem::with_id(
+        app,
+        menu_id(Action::Quit),
+        "Quit Glassview",
+        true,
+        None::<&str>,
+    )?;
     let separator = PredefinedMenuItem::separator(app)?;
     let menu = Menu::with_items(app, &[&toggle, &settings, &separator, &quit])?;
     tauri::tray::TrayIconBuilder::with_id(TRAY_ID)

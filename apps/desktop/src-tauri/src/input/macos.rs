@@ -9,6 +9,7 @@ use crate::{
     Result,
 };
 use block2::RcBlock;
+use objc2::MainThreadMarker;
 use objc2_app_kit::{NSEvent, NSEventMask};
 use objc2_core_foundation::{kCFRunLoopCommonModes, CFMachPort, CFRetained, CFRunLoop};
 use objc2_core_graphics::{
@@ -30,6 +31,7 @@ use tauri_plugin_opener::OpenerExt;
 const INPUT_MONITORING_PANE: &str =
     "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent";
 const LISTEN_EVENT: u32 = 1;
+const MIDDLE_BUTTON: i64 = 2;
 
 #[link(name = "IOKit", kind = "framework")]
 extern "C" {
@@ -206,7 +208,7 @@ fn on_mouse(event: &NSEvent) {
         CGEventType::RightMouseDown => Button::Right,
         CGEventType::OtherMouseDown
             if CGEvent::integer_value_field(Some(event), CGEventField::MouseEventButtonNumber)
-                == 2 =>
+                == MIDDLE_BUTTON =>
         {
             Button::Middle
         }
@@ -233,6 +235,9 @@ fn on_key(kind: CGEventType, event: &CGEvent) {
     let Some(sink) = SINK.get().filter(|sink| sink.gate.enabled()) else {
         return;
     };
+    let Some(mtm) = MainThreadMarker::new() else {
+        return;
+    };
     let flags = CGEvent::flags(Some(event));
     let mods = [
         (CGEventFlags::MaskControl, Mods::CTRL),
@@ -249,7 +254,7 @@ fn on_key(kind: CGEventType, event: &CGEvent) {
     }
     let code = CGEvent::integer_value_field(Some(event), CGEventField::KeyboardEventKeycode) as u16;
     let Some(key) = named_key(code).map(Key::Named).or_else(|| {
-        translate(code, 0)
+        translate(mtm, code, 0)
             .filter(|c| !c.is_control())
             .map(Key::Char)
     }) else {
@@ -264,7 +269,7 @@ fn on_key(kind: CGEventType, event: &CGEvent) {
     .into_iter()
     .filter(|(flag, _)| flags.contains(*flag))
     .fold(0, |bits, (_, bit)| bits | bit);
-    let text = keys::mac_typed_text(mods, || translate(code, layout_mods));
+    let text = keys::mac_typed_text(mods, || translate(mtm, code, layout_mods));
     if let Some(stroke) = keys::admit(KeyPress { mods, key, text }, mode) {
         sink.key(stroke, location(event));
     }
@@ -312,7 +317,7 @@ fn named_key(code: u16) -> Option<Named> {
     })
 }
 
-fn translate(code: u16, modifiers: u32) -> Option<char> {
+fn translate(_mtm: MainThreadMarker, code: u16, modifiers: u32) -> Option<char> {
     unsafe {
         let mut source = TISCopyCurrentKeyboardLayoutInputSource();
         let mut data = layout_data(source);

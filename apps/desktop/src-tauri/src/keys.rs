@@ -11,7 +11,7 @@ impl Mods {
     pub(crate) fn has(self, other: Self) -> bool {
         self.0 & other.0 == other.0
     }
-    pub(crate) fn commands(self) -> bool {
+    pub(crate) fn has_command(self) -> bool {
         self.0 & (Self::CTRL.0 | Self::ALT.0 | Self::META.0) != 0
     }
 }
@@ -53,6 +53,13 @@ pub(crate) struct KeyPress {
     pub(crate) key: Key,
     pub(crate) text: Option<char>,
 }
+impl std::fmt::Debug for KeyPress {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("KeyPress")
+            .field("mods", &self.mods)
+            .finish_non_exhaustive()
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -90,14 +97,14 @@ pub(crate) enum StrokeView {
 }
 
 pub(crate) fn may_show(mods: Mods, mode: KeyMode) -> bool {
-    mode == KeyMode::All || mods.commands()
+    mode == KeyMode::All || mods.has_command()
 }
 
 pub(crate) fn admit(press: KeyPress, mode: KeyMode) -> Option<Stroke> {
     let KeyPress { mods, key, text } = press;
     let shown = match mode {
         KeyMode::All => true,
-        KeyMode::Shortcuts => mods.commands() && text.is_none(),
+        KeyMode::Shortcuts => mods.has_command() && text.is_none(),
     };
     shown.then_some(Stroke { mods, key, text })
 }
@@ -108,7 +115,7 @@ fn printable(c: &char) -> bool {
 
 /// macOS: ⌘ or ⌃ turn any key into a command. Otherwise, including with ⌥ and ⇧,
 /// the layout decides, so ⌥2 = "™" is text and ⌥← is not.
-#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+#[cfg(any(target_os = "macos", test))]
 pub(crate) fn mac_typed_text(mods: Mods, translate: impl FnOnce() -> Option<char>) -> Option<char> {
     if mods.has(Mods::META) || mods.has(Mods::CTRL) {
         return None;
@@ -119,7 +126,7 @@ pub(crate) fn mac_typed_text(mods: Mods, translate: impl FnOnce() -> Option<char
 /// Windows: AltGr arrives as Ctrl+Alt, and Alt with numpad digits types Alt codes.
 /// `numpad_digit` is the digit a numpad key stands for, decided by key identity
 /// because translating with Alt held yields nothing for Alt codes.
-#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+#[cfg(any(target_os = "windows", test))]
 pub(crate) fn windows_typed_text(
     mods: Mods,
     numpad_digit: Option<char>,

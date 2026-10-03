@@ -5,7 +5,7 @@ export interface Pill { chips: Chip[]; lastAt: number }
 
 export const MAX_CHIPS = 5;
 export const MAX_TEXT = 20;
-const REPEAT = 3;
+const REPEAT_THRESHOLD = 3;
 
 export function pushStroke(pill: Pill | null, stroke: StrokeView, now: number, fadeMs: number): Pill {
   const chips = pill && now - pill.lastAt < fadeMs ? pill.chips : [];
@@ -20,9 +20,9 @@ export function pushStroke(pill: Pill | null, stroke: StrokeView, now: number, f
     const c = stroke.text;
     if (last?.kind !== 'text') next = [...chips, { kind: 'text', label: c, count: 1 }];
     else if (last.count > 1) next = last.label === c ? [...rest, { ...last, count: last.count + 1 }] : [...chips, { kind: 'text', label: c, count: 1 }];
-    else if ([...last.label].slice(1 - REPEAT).join('') === c.repeat(REPEAT - 1)) {
-      const run = [...last.label].slice(0, 1 - REPEAT).join('');
-      next = [...rest, ...(run ? [{ ...last, label: run }] : []), { kind: 'text', label: c, count: REPEAT }];
+    else if ([...last.label].slice(1 - REPEAT_THRESHOLD).join('') === c.repeat(REPEAT_THRESHOLD - 1)) {
+      const run = [...last.label].slice(0, 1 - REPEAT_THRESHOLD).join('');
+      next = [...rest, ...(run ? [{ ...last, label: run }] : []), { kind: 'text', label: c, count: REPEAT_THRESHOLD }];
     }
     else if ([...last.label].length >= MAX_TEXT) next = [...chips, { kind: 'text', label: c, count: 1 }];
     else next = [...rest, { ...last, label: last.label + c }];

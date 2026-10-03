@@ -8,7 +8,7 @@ use crate::{
 use std::time::Duration;
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
-const SETTINGS_SIZE: (f64, f64) = (380.0, 600.0);
+const SETTINGS_CSS_SIZE: (f64, f64) = (380.0, 600.0);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum Surface {
@@ -58,7 +58,7 @@ pub(crate) fn create_settings(app: &tauri::App) -> tauri::Result<()> {
         WebviewUrl::App(format!("index.html?surface={}", Surface::Settings.url()).into()),
     )
     .title("Glassview Settings")
-    .inner_size(SETTINGS_SIZE.0, SETTINGS_SIZE.1)
+    .inner_size(SETTINGS_CSS_SIZE.0, SETTINGS_CSS_SIZE.1)
     .resizable(false)
     .maximizable(false)
     .minimizable(false)
@@ -118,9 +118,11 @@ fn build_overlay(app: &tauri::AppHandle, index: usize) -> Result<tauri::WebviewW
 fn configure_native(window: &tauri::WebviewWindow) {
     #[cfg(target_os = "macos")]
     if let Ok(ptr) = window.ns_window() {
-        use objc2_app_kit::{NSWindow, NSWindowCollectionBehavior as Behavior};
+        use objc2_app_kit::{
+            NSScreenSaverWindowLevel, NSWindow, NSWindowCollectionBehavior as Behavior,
+        };
         let native = unsafe { &*(ptr as *const NSWindow) };
-        native.setLevel(1000);
+        native.setLevel(NSScreenSaverWindowLevel);
         native.setCollectionBehavior(
             Behavior::CanJoinAllSpaces
                 | Behavior::FullScreenAuxiliary
@@ -243,8 +245,8 @@ pub(crate) fn center_settings(app: &tauri::AppHandle, window: &tauri::WebviewWin
         .ok_or("No display is available for settings")?;
     let (bounds, k) = (display.bounds, display.css_per_unit);
     let at = Point {
-        x: bounds.x + (bounds.width - SETTINGS_SIZE.0 / k) / 2.0,
-        y: bounds.y + (bounds.height - SETTINGS_SIZE.1 / k) / 2.0,
+        x: bounds.x + (bounds.width - SETTINGS_CSS_SIZE.0 / k) / 2.0,
+        y: bounds.y + (bounds.height - SETTINGS_CSS_SIZE.1 / k) / 2.0,
     };
     #[cfg(target_os = "macos")]
     window.set_position(tauri::LogicalPosition::new(at.x, at.y))?;

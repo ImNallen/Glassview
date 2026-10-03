@@ -56,7 +56,7 @@ pub(crate) struct Pipeline {
     os: Os,
     config: Config,
     layout: Layout,
-    halo_on: Option<usize>,
+    halo_overlay: Option<usize>,
     pending_move: Option<Point>,
     last_halo: Option<Instant>,
 }
@@ -67,7 +67,7 @@ impl Pipeline {
             os,
             config,
             layout,
-            halo_on: None,
+            halo_overlay: None,
             pending_move: None,
             last_halo: None,
         }
@@ -141,8 +141,8 @@ impl Pipeline {
         let Some((overlay, css)) = self.layout.locate(at) else {
             return self.clear_halo().into_iter().collect();
         };
-        let left = self.halo_on.filter(|&old| old != overlay);
-        self.halo_on = Some(overlay);
+        let left = self.halo_overlay.filter(|&old| old != overlay);
+        self.halo_overlay = Some(overlay);
         left.map(|old| Emit {
             overlay: old,
             event: OverlayEvent::Halo { at: None },
@@ -156,7 +156,7 @@ impl Pipeline {
     }
 
     fn clear_halo(&mut self) -> Option<Emit> {
-        self.halo_on.take().map(|overlay| Emit {
+        self.halo_overlay.take().map(|overlay| Emit {
             overlay,
             event: OverlayEvent::Halo { at: None },
         })

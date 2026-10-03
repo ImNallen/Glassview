@@ -15,12 +15,13 @@ pub(crate) enum Action {
     Quit,
 }
 
-#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub(crate) enum KeyAccess {
     Granted,
+    #[cfg(any(target_os = "macos", test))]
     Denied,
+    #[cfg(any(target_os = "macos", test))]
     Unknown,
 }
 
@@ -72,7 +73,7 @@ impl Session {
         }
         false
     }
-    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    #[cfg(any(target_os = "macos", test))]
     pub(crate) fn set_key_access(&mut self, access: KeyAccess) {
         if self.key_access != KeyAccess::Granted && access == KeyAccess::Granted {
             self.granted_while_running = true;

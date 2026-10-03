@@ -14,7 +14,7 @@ pub(crate) fn exit(error: &str) -> ! {
 #[cfg(target_os = "macos")]
 fn show_native(details: &str) {
     use objc2::MainThreadMarker;
-    use objc2_app_kit::{NSAlert, NSAlertStyle, NSApplication};
+    use objc2_app_kit::{NSAlert, NSAlertStyle};
     use objc2_foundation::NSString;
     let Some(mtm) = MainThreadMarker::new() else {
         return;
@@ -24,9 +24,8 @@ fn show_native(details: &str) {
     alert.setMessageText(&NSString::from_str(TITLE));
     alert.setInformativeText(&NSString::from_str(details));
     // A menu-bar app is not activated on launch, so the alert would open
-    // behind the frontmost app. `activate` needs macOS 14; this supports 12.
-    #[allow(deprecated)]
-    NSApplication::sharedApplication(mtm).activateIgnoringOtherApps(true);
+    // behind the frontmost app.
+    crate::commands::activate_app();
     alert.runModal();
 }
 

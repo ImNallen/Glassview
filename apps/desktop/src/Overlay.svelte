@@ -39,7 +39,7 @@
     <span class="halo" style:transform={`translate(${view.halo.x}px, ${view.halo.y}px)`} style:--color={preferences.rippleColors.left}></span>
   {/if}
   {#if view.pill}
-    <div class={`pill ${preferences.pillSize}`} class:fading style={pillAnchor(preferences.pillPosition)}>
+    <div class={`pill ${preferences.pillSize}`} class:fading style={pillAnchor(preferences.pillPosition)} style:--fade-out={`${FADE_OUT_MS}ms`}>
       {#each view.pill.chips as chip, index (index)}
         <span class={`chip ${chip.kind}`}>{chipLabel(chip)}{#if chip.count > 1}<small>×{chip.count}</small>{/if}</span>
       {/each}
@@ -52,7 +52,7 @@
   .ripple { position: absolute; width: var(--size); height: var(--size); margin: calc(var(--size) / -2) 0 0 calc(var(--size) / -2); border-radius: 50%; border: 3px solid var(--color); background: color-mix(in srgb, var(--color) 22%, transparent); animation: ripple 480ms cubic-bezier(.2, .7, .3, 1) forwards; }
   @keyframes ripple { from { transform: scale(.25); opacity: 1; } 60% { opacity: .9; } to { transform: scale(1); opacity: 0; } }
   .halo { position: absolute; left: -22px; top: -22px; width: 44px; height: 44px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--color) 45%, transparent) 0%, color-mix(in srgb, var(--color) 18%, transparent) 55%, transparent 72%); transition: transform 16ms linear; }
-  .pill { position: absolute; display: flex; align-items: center; gap: .35em; max-width: calc(100vw - 48px); padding: .32em .42em; border-radius: .7em; background: #16181dd9; box-shadow: 0 0 0 1px #ffffff1f, 0 6px 24px #0000004d; -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); color: #fff; font-weight: 500; white-space: pre; transition: opacity 200ms ease-out; }
+  .pill { position: absolute; display: flex; align-items: center; gap: .35em; max-width: calc(100vw - 48px); padding: .32em .42em; border-radius: .7em; background: #16181dd9; box-shadow: 0 0 0 1px #ffffff1f, 0 6px 24px #0000004d; -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); color: #fff; font-weight: 500; white-space: pre; transition: opacity var(--fade-out) ease-out; }
   .pill.fading { opacity: 0; }
   .small { font-size: 15px; }
   .medium { font-size: 21px; }

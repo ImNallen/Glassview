@@ -4,7 +4,7 @@ use crate::{
     pipeline::{Config, Msg, PipelineHandle},
     preference_saves::PreferenceSaves,
     preferences::Preferences,
-    session::{Action, KeyAccess, Session},
+    session::{Action, Session},
     state::{publish, report, snapshot, AppState},
     tray, Result,
 };
@@ -65,7 +65,7 @@ pub(crate) fn perform(app: &tauri::AppHandle, action: Action) -> Result<()> {
         // A menu-bar app is never frontmost on its own, so Settings would open behind
         // the active app and not become key, which keeps Escape from reaching it.
         #[cfg(target_os = "macos")]
-        app.run_on_main_thread(activate)?;
+        app.run_on_main_thread(activate_app)?;
         settings.show()?;
         settings.set_focus()?;
     }
@@ -74,7 +74,7 @@ pub(crate) fn perform(app: &tauri::AppHandle, action: Action) -> Result<()> {
 
 /// `activate` needs macOS 14; this supports 12.
 #[cfg(target_os = "macos")]
-fn activate() {
+pub(crate) fn activate_app() {
     use objc2_app_kit::NSApplication;
     let Some(mtm) = objc2::MainThreadMarker::new() else {
         return;
@@ -101,8 +101,11 @@ pub(crate) fn apply(app: &tauri::AppHandle) -> Result<()> {
     publish(app)
 }
 
-#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
-pub(crate) fn set_key_access(app: &tauri::AppHandle, access: KeyAccess) -> Result<()> {
+#[cfg(target_os = "macos")]
+pub(crate) fn set_key_access(
+    app: &tauri::AppHandle,
+    access: crate::session::KeyAccess,
+) -> Result<()> {
     app.state::<AppState>()
         .0
         .lock()

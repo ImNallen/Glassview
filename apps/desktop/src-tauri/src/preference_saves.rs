@@ -4,6 +4,8 @@ use std::{
     time::Duration,
 };
 
+const DEBOUNCE: Duration = Duration::from_millis(120);
+
 enum SaveRequest {
     Update(Preferences),
     Flush(Sender<Result<()>>),
@@ -55,7 +57,7 @@ fn save_loop(
     let mut dirty = false;
     loop {
         let request = if dirty {
-            match receiver.recv_timeout(Duration::from_millis(120)) {
+            match receiver.recv_timeout(DEBOUNCE) {
                 Ok(request) => request,
                 Err(RecvTimeoutError::Timeout) => {
                     if let Some(preferences) = pending.as_ref() {
