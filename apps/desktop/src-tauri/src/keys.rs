@@ -120,6 +120,8 @@ fn printable(c: &char) -> bool {
 
 /// macOS: ⌘ or ⌃ turn any key into a command. Otherwise, including with ⌥ and ⇧,
 /// the layout decides, so ⌥2 = "™" is text and ⌥← is not.
+// Each OS rule is used by one platform layer but tested on every host.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub(crate) fn mac_typed_text(mods: Mods, translate: impl FnOnce() -> Option<char>) -> Option<char> {
     if mods.has(Mods::META) || mods.has(Mods::CTRL) {
         return None;
@@ -130,6 +132,7 @@ pub(crate) fn mac_typed_text(mods: Mods, translate: impl FnOnce() -> Option<char
 /// Windows: AltGr arrives as Ctrl+Alt, and Alt with numpad digits types Alt codes.
 /// `numpad_digit` is the digit a numpad key stands for, decided by key identity
 /// because translating with Alt held yields nothing for Alt codes.
+#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
 pub(crate) fn windows_typed_text(
     mods: Mods,
     numpad_digit: Option<char>,

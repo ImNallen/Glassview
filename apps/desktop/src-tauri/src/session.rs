@@ -17,6 +17,7 @@ pub(crate) enum Action {
 }
 
 /// Whether macOS lets Glassview see key presses (Input Monitoring). Always granted on Windows.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub(crate) enum KeyAccess {
@@ -77,6 +78,7 @@ impl Session {
         }
         false
     }
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     pub(crate) fn set_key_access(&mut self, access: KeyAccess) {
         if self.key_access != KeyAccess::Granted && access == KeyAccess::Granted {
             self.granted_while_running = true;

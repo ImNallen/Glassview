@@ -28,7 +28,7 @@ strip = false
 objc2 = "0.6"
 objc2-app-kit = { version = "0.3", features = ["NSAlert", "NSApplication", "NSResponder", "NSWindow"] }
 objc2-core-foundation = { version = "0.3", features = ["CFData", "CFMachPort", "CFRunLoop", "CFString"] }
-objc2-core-graphics = { version = "0.3", features = ["CGEvent", "CGEventTypes"] }
+objc2-core-graphics = { version = "0.3", features = ["CGEvent", "CGEventSource", "CGEventTypes"] }
 objc2-foundation = { version = "0.3", features = ["NSString"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
