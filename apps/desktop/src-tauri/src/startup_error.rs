@@ -2,8 +2,6 @@ use crate::commands::REPOSITORY_URL;
 
 const TITLE: &str = "Glassview could not start";
 
-/// Explains a fatal startup error in a native dialog and exits, since a
-/// release build has no console and no Glassview window may exist to show it.
 pub(crate) fn exit(error: &str) -> ! {
     log::error!("Could not start Glassview: {error}");
     show_native(&format!(

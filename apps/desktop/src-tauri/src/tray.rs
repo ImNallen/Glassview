@@ -13,7 +13,6 @@ use tauri::{
 
 const TRAY_ID: &str = "glassview-tray";
 
-/// The parts of the tray `sync_tray` updates, and what they last showed.
 pub(crate) struct Tray {
     menu: Menu<tauri::Wry>,
     toggle: CheckMenuItem<tauri::Wry>,
@@ -46,7 +45,6 @@ fn icon(enabled: bool) -> Image<'static> {
 }
 
 pub(crate) fn create_tray(app: &tauri::App) -> tauri::Result<()> {
-    // Menu item IDs are action wire names.
     let toggle = CheckMenuItem::with_id(
         app,
         "toggle",

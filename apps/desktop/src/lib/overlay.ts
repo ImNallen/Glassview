@@ -4,7 +4,6 @@ import { pushStroke, type Pill } from './pill';
 export interface Ripple { id: number; button: Button; x: number; y: number }
 export interface OverlayView { ripples: Ripple[]; halo: Point | null; pill: Pill | null; nextId: number }
 export const initial: OverlayView = { ripples: [], halo: null, pill: null, nextId: 0 };
-/** A click storm cannot grow the DOM past this many ripples. */
 export const MAX_RIPPLES = 24;
 
 export function reduce(view: OverlayView, event: OverlayEvent, now: number, fadeMs: number): OverlayView {
@@ -20,12 +19,10 @@ export function reduce(view: OverlayView, event: OverlayEvent, now: number, fade
 export function dropRipple(view: OverlayView, id: number): OverlayView {
   return { ...view, ripples: view.ripples.filter(ripple => ripple.id !== id) };
 }
-/** Clears a faded pill, unless a newer stroke arrived after the timer was set. */
 export function expirePill(view: OverlayView, now: number, fadeMs: number): OverlayView {
   return view.pill && now - view.pill.lastAt >= fadeMs ? { ...view, pill: null } : view;
 }
 
-/** Pill placement: 24px from the screen edges, bottom center raised to clear docks and taskbars. */
 export function pillAnchor(position: PillPosition): string {
   switch (position) {
     case 'bottom-center': return 'left: 50%; bottom: 72px; transform: translateX(-50%)';

@@ -1,4 +1,3 @@
-/// Crosses IPC as its plain message, which the webviews show as is.
 #[derive(Debug, serde::Serialize)]
 #[serde(transparent)]
 pub(crate) struct Error(String);

@@ -4,7 +4,6 @@
   import { dropRipple, expirePill, initial, pillAnchor, reduce } from './lib/overlay';
   import { chipLabel } from './lib/pill';
   let { session }: { session: Session } = $props();
-  /** The pill's closing opacity transition, inside the fade duration. */
   const FADE_OUT_MS = 200;
   let preferences = $derived(session.preferences);
   let view = $state(initial);

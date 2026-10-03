@@ -9,8 +9,6 @@ enum SaveRequest {
     Flush(Sender<Result<()>>),
 }
 
-/// One writer serializes background saves and the save on exit, so a slider drag
-/// writes the file once rather than on every step.
 pub(crate) struct PreferenceSaves(Sender<SaveRequest>);
 
 impl PreferenceSaves {
@@ -60,7 +58,6 @@ fn save_loop(
             match receiver.recv_timeout(Duration::from_millis(120)) {
                 Ok(request) => request,
                 Err(RecvTimeoutError::Timeout) => {
-                    // Keep a failed save for an explicit flush, without a retry loop.
                     if let Some(preferences) = pending.as_ref() {
                         match write(preferences) {
                             Ok(()) => pending = None,

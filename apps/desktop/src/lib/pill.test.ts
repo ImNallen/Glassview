@@ -5,7 +5,6 @@ import type { StrokeView } from './native';
 const FADE = 1500;
 const text = (text: string): StrokeView => ({ kind: 'text', text });
 const chord = (label: string): StrokeView => ({ kind: 'chord', label });
-/** Pushes each stroke 100 ms after the previous one and renders chips as "label ×count". */
 function typed(strokes: StrokeView[], pill: Pill | null = null, start = 0): string[] {
   let at = start;
   for (const stroke of strokes) pill = pushStroke(pill, stroke, at += 100, FADE);

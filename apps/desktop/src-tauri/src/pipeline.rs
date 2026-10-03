@@ -10,7 +10,6 @@ use std::{
 };
 use tauri::Emitter;
 
-/// At most one halo update per display refresh, however fast the mouse reports.
 const HALO_INTERVAL: Duration = Duration::from_millis(16);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -21,7 +20,6 @@ pub(crate) enum Button {
     Middle,
 }
 
-/// Input in input space. Keys are already admitted strokes.
 pub(crate) enum InputEvent {
     Click { button: Button, at: Point },
     Move { at: Point },
@@ -40,7 +38,6 @@ pub(crate) enum Msg {
     Layout(Layout),
 }
 
-/// The one event the overlay webviews listen to, as `overlay`, in that overlay's CSS pixels.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub(crate) enum OverlayEvent {
@@ -55,13 +52,10 @@ pub(crate) struct Emit {
     pub(crate) event: OverlayEvent,
 }
 
-/// Routes input to the overlay of the display it happened on. Time is injected so
-/// coalescing is tested without sleeping.
 pub(crate) struct Pipeline {
     os: Os,
     config: Config,
     layout: Layout,
-    /// The overlay currently drawing the halo.
     halo_on: Option<usize>,
     pending_move: Option<Point>,
     last_halo: Option<Instant>,
@@ -92,7 +86,6 @@ impl Pipeline {
             Msg::Layout(layout) => {
                 self.layout = layout;
                 self.pending_move = None;
-                // Indices may now name other displays, so the old halo is cleared, not moved.
                 self.clear_halo().into_iter().collect()
             }
             Msg::Input(_) if !self.config.enabled => vec![],
@@ -134,7 +127,6 @@ impl Pipeline {
         }
     }
 
-    /// When the shell should wake to flush a coalesced move.
     pub(crate) fn deadline(&self) -> Option<Instant> {
         self.pending_move
             .and(self.last_halo)
@@ -171,11 +163,9 @@ impl Pipeline {
     }
 }
 
-/// The pipeline thread's inbox, shared by the input callbacks and `apply`.
 #[derive(Clone)]
 pub(crate) struct PipelineHandle(Sender<Msg>);
 impl PipelineHandle {
-    /// Never blocks. A closed channel means the app is exiting, so the message is dropped.
     pub(crate) fn send(&self, msg: Msg) {
         let _ = self.0.send(msg);
     }
@@ -230,7 +220,6 @@ mod tests {
     fn at(x: f64, y: f64) -> Point {
         Point { x, y }
     }
-    /// Two side-by-side 1000x800 displays, the right one at 2x on Windows.
     fn two_displays() -> Layout {
         Layout::from_monitors(
             &[

@@ -117,12 +117,10 @@ fn install_mouse_monitor() -> Result<()> {
         | NSEventMask::RightMouseDragged
         | NSEventMask::OtherMouseDragged;
     let handler = RcBlock::new(|event: NonNull<NSEvent>| {
-        // A panic must not unwind into AppKit.
         let _ = catch_unwind(AssertUnwindSafe(|| on_mouse(unsafe { event.as_ref() })));
     });
     let monitor = NSEvent::addGlobalMonitorForEventsMatchingMask_handler(mask, &handler)
         .ok_or("macOS refused to monitor mouse events")?;
-    // Never removed, so the monitor lives as long as the app.
     std::mem::forget(monitor);
     Ok(())
 }
@@ -153,7 +151,7 @@ fn install_key_tap() -> Result<()> {
 }
 
 /// Polls for as long as access is missing, since the grant happens in System Settings
-/// at any time. Installs the keyboard tap on the main thread once granted.
+/// at any time.
 fn watch_key_access(app: tauri::AppHandle, mut last: KeyAccess) {
     std::thread::spawn(move || loop {
         std::thread::sleep(Duration::from_secs(2));
@@ -206,7 +204,6 @@ fn on_mouse(event: &NSEvent) {
     let button = match CGEvent::r#type(Some(event)) {
         CGEventType::LeftMouseDown => Button::Left,
         CGEventType::RightMouseDown => Button::Right,
-        // Buttons 3 and up are back, forward, and other extras, which get no ripple.
         CGEventType::OtherMouseDown
             if CGEvent::integer_value_field(Some(event), CGEventField::MouseEventButtonNumber)
                 == 2 =>
@@ -315,8 +312,6 @@ fn named_key(code: u16) -> Option<Named> {
     })
 }
 
-/// The character `code` types on the current layout with `modifiers`, or None for
-/// dead keys and keys that type nothing. Main thread only.
 fn translate(code: u16, modifiers: u32) -> Option<char> {
     unsafe {
         let mut source = TISCopyCurrentKeyboardLayoutInputSource();

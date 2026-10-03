@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-/// Held modifiers. META is ⌘ on macOS and Win on Windows.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub(crate) struct Mods(u8);
 impl Mods {
@@ -12,7 +11,6 @@ impl Mods {
     pub(crate) fn has(self, other: Self) -> bool {
         self.0 & other.0 == other.0
     }
-    /// Ctrl, Alt/Option, or Cmd/Win: the modifiers that can make a press a shortcut.
     pub(crate) fn commands(self) -> bool {
         self.0 & (Self::CTRL.0 | Self::ALT.0 | Self::META.0) != 0
     }
@@ -44,19 +42,15 @@ pub(crate) enum Named {
     F(u8),
 }
 
-/// What a key is called on its keycap. `Char` is the layout's unshifted character, uppercased.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Key {
     Char(char),
     Named(Named),
 }
 
-/// A key press as a platform layer observed it. Modifier-only presses never become one.
-/// No `Debug`, so typed text cannot reach a log line by accident.
 pub(crate) struct KeyPress {
     pub(crate) mods: Mods,
     pub(crate) key: Key,
-    /// The character this press types with its current modifiers, if any.
     pub(crate) text: Option<char>,
 }
 
@@ -67,7 +61,6 @@ pub(crate) enum KeyMode {
     All,
 }
 
-/// A press the privacy filter allowed to be shown. Only `admit` constructs one.
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(test, derive(Debug))]
 pub(crate) struct Stroke {
@@ -89,7 +82,6 @@ impl Os {
     };
 }
 
-/// What an overlay renders for one stroke. The webview never sees modifiers or key codes.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub(crate) enum StrokeView {
@@ -97,14 +89,10 @@ pub(crate) enum StrokeView {
     Text { text: String },
 }
 
-/// Runs before any key translation: in Shortcuts mode a press with no command
-/// modifier can never be shown, so it is dropped untranslated.
 pub(crate) fn may_show(mods: Mods, mode: KeyMode) -> bool {
     mode == KeyMode::All || mods.commands()
 }
 
-/// The privacy filter. Shortcuts mode shows a press only when a command
-/// modifier is held and the press types nothing.
 pub(crate) fn admit(press: KeyPress, mode: KeyMode) -> Option<Stroke> {
     let KeyPress { mods, key, text } = press;
     let shown = match mode {
@@ -120,7 +108,6 @@ fn printable(c: &char) -> bool {
 
 /// macOS: ⌘ or ⌃ turn any key into a command. Otherwise, including with ⌥ and ⇧,
 /// the layout decides, so ⌥2 = "™" is text and ⌥← is not.
-// Each OS rule is used by one platform layer but tested on every host.
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub(crate) fn mac_typed_text(mods: Mods, translate: impl FnOnce() -> Option<char>) -> Option<char> {
     if mods.has(Mods::META) || mods.has(Mods::CTRL) {
@@ -159,7 +146,6 @@ impl Stroke {
             },
         }
     }
-    /// macOS: "⇧⌘P" in ⌃⌥⇧⌘ order. Windows: "Ctrl+Alt+Del" in Win, Ctrl, Alt, Shift order.
     fn label(&self, os: Os) -> String {
         let key = key_name(self.key, os);
         match os {
@@ -232,8 +218,6 @@ mod tests {
     fn text(text: &str) -> Option<StrokeView> {
         Some(StrokeView::Text { text: text.into() })
     }
-    /// Runs a press through the same steps a platform layer does: the
-    /// pre-check, the OS rule for typed text, then the filter.
     fn shown(
         os: Os,
         mode: KeyMode,

@@ -1,15 +1,12 @@
 import type { StrokeView } from './native';
 
-/** A text chip with `count` 1 is a run of typed text; above 1 it is one character repeated. */
 export interface Chip { kind: 'chord' | 'text'; label: string; count: number }
 export interface Pill { chips: Chip[]; lastAt: number }
 
 export const MAX_CHIPS = 5;
 export const MAX_TEXT = 20;
-/** The same character this many times in a row becomes a repeat chip. */
 const REPEAT = 3;
 
-/** Adds a stroke at `now`, starting a fresh pill once the previous one has faded. */
 export function pushStroke(pill: Pill | null, stroke: StrokeView, now: number, fadeMs: number): Pill {
   const chips = pill && now - pill.lastAt < fadeMs ? pill.chips : [];
   const last = chips.at(-1);
@@ -33,7 +30,6 @@ export function pushStroke(pill: Pill | null, stroke: StrokeView, now: number, f
   return { chips: next.slice(-MAX_CHIPS), lastAt: now };
 }
 
-/** What a chip shows: a repeated space would otherwise be invisible. */
 export function chipLabel(chip: Chip): string {
   return chip.kind === 'text' && chip.count > 1 && chip.label === ' ' ? '␣' : chip.label;
 }

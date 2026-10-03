@@ -15,7 +15,6 @@ use std::sync::{
     Arc,
 };
 
-/// Read lock-free by the native callbacks; written only by `commands::apply`.
 #[derive(Default)]
 pub(crate) struct Gate {
     enabled: AtomicBool,
@@ -40,7 +39,6 @@ impl Gate {
     }
 }
 
-/// What a native callback holds. Its methods never block.
 pub(crate) struct Sink {
     pub(crate) gate: Arc<Gate>,
     pipeline: PipelineHandle,
@@ -57,7 +55,6 @@ impl Sink {
         self.pipeline
             .send(Msg::Input(InputEvent::Click { button, at }));
     }
-    /// Dropped here unless the halo is on, so moves cost nothing otherwise.
     pub(crate) fn moved(&self, at: Point) {
         if self.gate.halo.load(Relaxed) {
             self.pipeline.send(Msg::Input(InputEvent::Move { at }));
@@ -65,8 +62,6 @@ impl Sink {
     }
 }
 
-/// Installs input capture for the app's lifetime. Runs on the main thread, since the
-/// macOS monitor and tap attach to it. Errors are explained in Settings, not fatal.
 pub(crate) fn start(app: &tauri::AppHandle, sink: Sink) -> Result<()> {
     #[cfg(target_os = "macos")]
     return macos::start(app, sink);
@@ -89,7 +84,6 @@ pub(crate) fn key_access() -> KeyAccess {
     KeyAccess::Granted
 }
 
-/// The pointer in input space, for placing windows on its display.
 pub(crate) fn cursor() -> Option<Point> {
     #[cfg(target_os = "macos")]
     return macos::cursor();
@@ -99,7 +93,6 @@ pub(crate) fn cursor() -> Option<Point> {
     None
 }
 
-/// macOS: asks the first time, then opens the Input Monitoring pane. Nothing to do on Windows.
 pub(crate) fn request_key_access(app: &tauri::AppHandle) -> Result<()> {
     #[cfg(target_os = "macos")]
     return macos::request_key_access(app);

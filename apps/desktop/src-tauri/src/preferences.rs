@@ -6,11 +6,9 @@ use tauri::Manager;
 
 const FILE_NAME: &str = "preferences.json";
 const BACKUP_NAME: &str = "preferences.json.bak";
-/// Saved files carry this so future upgrades apply only to files written before them.
 const FORMAT_VERSION: u64 = 1;
 const INVALID: &str = "Invalid preferences";
 
-/// `#rrggbb`, kept in the case the user typed.
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 #[serde(try_from = "String")]
 pub(crate) struct HexColor(String);
@@ -31,7 +29,6 @@ pub(crate) struct RippleColors {
     pub(crate) middle: HexColor,
 }
 
-/// Ripple diameter in CSS pixels.
 #[derive(Clone, Copy, Serialize, Deserialize, Debug, PartialEq)]
 #[serde(try_from = "u8")]
 pub(crate) struct RippleSize(u8);
@@ -45,7 +42,6 @@ impl TryFrom<u8> for RippleSize {
     }
 }
 
-/// How long the key pill stays after the last key.
 #[derive(Clone, Copy, Serialize, Deserialize, Debug, PartialEq)]
 #[serde(try_from = "u16")]
 pub(crate) struct FadeMs(u16);
@@ -87,10 +83,8 @@ pub(crate) struct Preferences {
     pub(crate) pill_size: PillSize,
     pub(crate) fade_ms: FadeMs,
     pub(crate) keys: KeyMode,
-    /// Settings has been closed once, so it no longer opens at launch.
     pub(crate) onboarded: bool,
 }
-/// The webviews import the same file, so the defaults have one source.
 const DEFAULTS_JSON: &str = include_str!("../../src/contract/preference-defaults.json");
 static DEFAULTS: LazyLock<Preferences> = LazyLock::new(|| {
     serde_json::from_str(DEFAULTS_JSON).expect("preference-defaults.json holds valid preferences")
@@ -101,7 +95,6 @@ impl Default for Preferences {
     }
 }
 impl Preferences {
-    /// Parses a saved file or webview payload. A missing field takes the shared default.
     pub(crate) fn parse(saved: Value) -> serde_json::Result<Self> {
         let Value::Object(fields) = saved else {
             return serde_json::from_value(saved);
@@ -112,7 +105,6 @@ impl Preferences {
         }
         serde_json::from_value(merged)
     }
-    /// Loads saved preferences, with a message for the user when any had to be reset.
     pub(crate) fn load(app: &tauri::AppHandle) -> (Self, Option<String>) {
         match app.path().app_config_dir() {
             Ok(dir) => load_from(&dir),
@@ -148,7 +140,6 @@ fn load_from(dir: &Path) -> (Preferences, Option<String>) {
         }
         Err(error) => {
             log::error!("Could not read {}: {error}", path.display());
-            // Move the unreadable file aside so saving the defaults cannot replace it.
             (
                 Preferences::default(),
                 ALL_RESET,
@@ -180,7 +171,6 @@ fn load_from(dir: &Path) -> (Preferences, Option<String>) {
         log::error!("Could not back up {}: {error}", path.display());
         return (preferences, Some(problem.into()));
     }
-    // Replace the damaged file with what was recovered, so the next launch starts clean.
     if let Err(error) = preferences.save_to(dir) {
         log::error!("Could not save recovered preferences: {error}");
     }
@@ -192,9 +182,6 @@ fn load_from(dir: &Path) -> (Preferences, Option<String>) {
     )
 }
 
-/// Rebuilds preferences one saved field at a time, so a single unreadable
-/// field (from a damaged file or a newer version) resets only that field.
-/// Returns the fields that were reset.
 fn recover(saved: Map<String, Value>) -> (Preferences, Vec<String>) {
     let Ok(Value::Object(mut kept)) = serde_json::to_value(Preferences::default()) else {
         return (
@@ -220,8 +207,6 @@ fn parse(fields: &Map<String, Value>) -> Option<Preferences> {
     Preferences::parse(Value::Object(fields.clone())).ok()
 }
 
-/// Writes beside the destination and renames into place, so a crash or power
-/// loss mid-save leaves the previous file intact instead of a truncated one.
 fn write_atomically(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     let temporary = path.with_extension("tmp");
     let written = std::fs::File::create(&temporary).and_then(|mut file| {
@@ -272,7 +257,6 @@ mod tests {
     #[test]
     fn saved_and_sent_preferences_keep_their_exact_json() {
         let default_json = serde_json::to_string(&Preferences::default()).unwrap();
-        // Every field in the shared file is one the struct knows; an unknown key would be dropped here.
         assert_eq!(
             serde_json::from_str::<Value>(&default_json).unwrap(),
             serde_json::from_str::<Value>(DEFAULTS_JSON).unwrap()

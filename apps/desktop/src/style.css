@@ -1,5 +1,3 @@
-/* Shared colors follow the OS appearance, matching Glassboard. The document stays
-   transparent for the overlays; Settings paints its own surface. */
 :root {
   --gb-surface: #f7f8fa;
   --gb-text: #252a33;

@@ -4,7 +4,6 @@ pub(crate) struct Point {
     pub(crate) y: f64,
 }
 
-/// In the platform's input space unless a method says otherwise.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Rect {
     pub(crate) x: f64,
@@ -23,8 +22,7 @@ impl Rect {
 
 /// The space native input arrives in, which is also the space overlay windows are placed in:
 /// macOS points from the primary display's top-left (Tauri Logical), Windows physical
-/// virtual-screen pixels (Tauri Physical). An argument rather than a `cfg` so both
-/// conversions are tested on every host.
+/// virtual-screen pixels (Tauri Physical).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum InputSpace {
     Points,
@@ -38,7 +36,6 @@ impl InputSpace {
     };
 }
 
-/// A Tauri monitor reduced to plain numbers, so tests can build one.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct MonitorInfo {
     pub(crate) position: (i32, i32),
@@ -58,7 +55,6 @@ impl From<&tauri::Monitor> for MonitorInfo {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Display {
     pub(crate) bounds: Rect,
-    /// CSS pixels in the overlay webview per input-space unit.
     pub(crate) css_per_unit: f64,
 }
 
@@ -108,7 +104,6 @@ impl Layout {
     pub(crate) fn displays(&self) -> &[Display] {
         &self.0
     }
-    /// Which overlay contains `at`, and where in that overlay's CSS pixels. None in gaps between displays.
     pub(crate) fn locate(&self, at: Point) -> Option<(usize, Point)> {
         self.0.iter().enumerate().find_map(|(index, display)| {
             let Display {
@@ -154,8 +149,6 @@ mod tests {
 
     #[test]
     fn mac_ultrawide_1x_primary_with_a_2x_display_to_its_right() {
-        // tao: primary 5120x1440 pt @1, external 1920x1080 pt @2 at x = 5120 pt,
-        // reported as physical = points * its own scale.
         let layout = Layout::from_monitors(
             &[
                 monitor((0, 0), (5120, 1440), 1.0),

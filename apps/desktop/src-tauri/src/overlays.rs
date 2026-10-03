@@ -8,13 +8,10 @@ use crate::{
 use std::time::Duration;
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
-/// Settings' size in CSS pixels.
 const SETTINGS_SIZE: (f64, f64) = (380.0, 600.0);
 
-/// A webview window. The label names it to Tauri and `?surface=` tells the frontend what to render.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum Surface {
-    /// The overlay covering one display, by `Layout` index.
     Overlay(usize),
     Settings,
 }
@@ -70,7 +67,6 @@ pub(crate) fn create_settings(app: &tauri::App) -> tauri::Result<()> {
     Ok(())
 }
 
-/// One placed overlay per display and none left over. Running it again changes nothing.
 pub(crate) fn sync(app: &tauri::AppHandle, layout: &Layout) -> Result<()> {
     for (index, display) in layout.displays().iter().enumerate() {
         let window = match Surface::Overlay(index).window(app) {
@@ -123,9 +119,7 @@ fn configure_native(window: &tauri::WebviewWindow) {
     #[cfg(target_os = "macos")]
     if let Ok(ptr) = window.ns_window() {
         use objc2_app_kit::{NSWindow, NSWindowCollectionBehavior as Behavior};
-        // Tauri supplies a live NSWindow, and this runs on the main thread.
         let native = unsafe { &*(ptr as *const NSWindow) };
-        // NSScreenSaverWindowLevel: above menus and the Dock, so clicks on them still ripple.
         native.setLevel(1000);
         native.setCollectionBehavior(
             Behavior::CanJoinAllSpaces
@@ -153,7 +147,6 @@ fn configure_native(window: &tauri::WebviewWindow) {
     let _ = window;
 }
 
-/// Input space is placement space: points on macOS, physical pixels on Windows.
 fn place(window: &tauri::WebviewWindow, bounds: Rect) -> Result<()> {
     #[cfg(target_os = "macos")]
     {
@@ -241,7 +234,6 @@ fn set_native_visible(window: &tauri::WebviewWindow, visible: bool) {
     let _ = (window, visible);
 }
 
-/// Centers Settings on the display under the pointer, using the same layout as the overlays.
 pub(crate) fn center_settings(app: &tauri::AppHandle, window: &tauri::WebviewWindow) -> Result<()> {
     let layout = current_layout(app)?;
     let display = input::cursor()
@@ -261,7 +253,6 @@ pub(crate) fn center_settings(app: &tauri::AppHandle, window: &tauri::WebviewWin
     Ok(())
 }
 
-/// Displays can be added, removed, or rescaled at any time; a poll reconciles them.
 pub(crate) fn watch_displays(app: tauri::AppHandle, initial: Layout) {
     std::thread::spawn(move || {
         let mut last = initial;
@@ -287,7 +278,6 @@ pub(crate) fn watch_displays(app: tauri::AppHandle, initial: Layout) {
             if scheduled.is_err() {
                 break;
             }
-            // A failed sync is retried on the next poll rather than waiting for another change.
             if synced.recv() == Ok(true) {
                 last = layout;
             }

@@ -1,7 +1,6 @@
 use crate::preferences::Preferences;
 use serde::{Deserialize, Serialize};
 
-/// The `action` command vocabulary, also used as tray menu item IDs.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum Action {
@@ -16,14 +15,12 @@ pub(crate) enum Action {
     Quit,
 }
 
-/// Whether macOS lets Glassview see key presses (Input Monitoring). Always granted on Windows.
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub(crate) enum KeyAccess {
     Granted,
     Denied,
-    /// The user has not been asked yet.
     Unknown,
 }
 
@@ -36,7 +33,6 @@ pub(crate) struct Session {
     /// Access was granted while running, which some macOS versions only honor after a relaunch.
     pub(crate) granted_while_running: bool,
     pub(crate) settings_open: bool,
-    /// The toggle shortcut as this OS writes it.
     pub(crate) shortcut: &'static str,
     pub(crate) shortcut_unavailable: bool,
     pub(crate) error: Option<String>,
@@ -59,8 +55,6 @@ impl Session {
             error: None,
         }
     }
-    /// The state change an action makes. Returns whether preferences changed and need saving.
-    /// Actions with only side effects leave the session as it is.
     pub(crate) fn transition(&mut self, action: Action) -> bool {
         match action {
             Action::Toggle => self.enabled = !self.enabled,

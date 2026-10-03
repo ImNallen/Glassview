@@ -13,7 +13,6 @@ use tauri::Manager;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
 pub(crate) const REPOSITORY_URL: &str = "https://github.com/ImNallen/Glassview";
-/// Fixed in v1. Shown as ⌥⇧⌘K on macOS and Ctrl+Alt+Shift+K on Windows.
 pub(crate) const TOGGLE_SHORTCUT: &str = "CommandOrControl+Alt+Shift+K";
 
 #[tauri::command]
@@ -84,8 +83,6 @@ fn activate() {
     NSApplication::sharedApplication(mtm).activateIgnoringOtherApps(true);
 }
 
-/// Projects the session onto the overlays, the input gate, the pipeline, Settings,
-/// and the tray. Idempotent, and the only writer of `Gate`.
 pub(crate) fn apply(app: &tauri::AppHandle) -> Result<()> {
     let session = snapshot(app);
     let Preferences { keys, halo, .. } = session.preferences;

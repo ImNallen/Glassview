@@ -18,10 +18,8 @@ export interface Session {
 }
 export type Action = 'toggle' | 'enable' | 'disable' | 'open-settings' | 'close-settings'
   | 'request-key-access' | 'relaunch' | 'dismiss-error' | 'quit';
-/** Rust formats labels, so the webview never sees modifiers or key codes. */
 export type StrokeView = { kind: 'chord'; label: string } | { kind: 'text'; text: string };
 export interface Point { x: number; y: number }
-/** In this overlay's CSS pixels. */
 export type OverlayEvent =
   | { kind: 'click'; button: Button; x: number; y: number }
   | { kind: 'halo'; at: Point | null }
@@ -34,7 +32,6 @@ export const DEFAULT_SESSION: Session = {
 };
 
 export async function subscribe(fn: (session: Session) => void): Promise<UnlistenFn> {
-  // Subscribe first so a transition during startup cannot be lost.
   let received = false;
   const unlisten = await listen<Session>('session', event => { received = true; fn(event.payload); });
   try { const initial = await invoke<Session>('get_session'); if (!received) fn(initial); }

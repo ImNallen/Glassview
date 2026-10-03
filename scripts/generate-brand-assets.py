@@ -1,5 +1,3 @@
-"""Render the Glassview logo set. Requires rsvg-convert and Python Pillow."""
-
 from io import BytesIO
 from pathlib import Path
 import shutil
@@ -20,9 +18,6 @@ DOT = '<circle cx="12" cy="12" r="2.5" fill="currentColor"/>'
 INNER = '<circle cx="12" cy="12" r="5.75" stroke="currentColor" stroke-width="2"/>'
 OUTER = '<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>'
 MARK = f'{DOT}\n{INNER}\n<g opacity="0.55">{OUTER}</g>'
-# The off state keeps the full silhouette so the tray item doesn't change size, dims it
-# so a monochrome menu bar reads it as disabled, and cuts a gap around the slash so the
-# slash stays separate from the rings at 18 pt.
 OFF_MARK = (
     '<mask id="slash"><rect width="24" height="24" fill="#FFFFFF"/>'
     '<path d="M3 3L21 21" stroke="#000000" stroke-width="4.5" stroke-linecap="round"/></mask>\n'
@@ -115,7 +110,6 @@ public.mkdir(parents=True, exist_ok=True)
 for name in ("favicon.svg", "favicon.ico"):
     shutil.copyfile(BRAND / name, public / name)
 
-# A review sheet made from the same source assets, with small icons at actual size.
 sheet = Image.new("RGB", (1200, 944), MIST)
 draw = ImageDraw.Draw(sheet)
 font_path = "/System/Library/Fonts/Helvetica.ttc"

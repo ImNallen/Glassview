@@ -60,7 +60,6 @@ pub(super) fn start(sink: Sink) -> Result<()> {
 unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     if code == HC_ACTION as i32 && matches!(wparam as u32, WM_KEYDOWN | WM_SYSKEYDOWN) {
         let event = unsafe { &*(lparam as *const KBDLLHOOKSTRUCT) };
-        // A panic must not unwind into user32, and input must always pass on.
         let _ = catch_unwind(AssertUnwindSafe(|| on_key(event)));
     }
     unsafe { CallNextHookEx(null_mut(), code, wparam, lparam) }
@@ -209,15 +208,14 @@ fn numpad_digit(vk: VIRTUAL_KEY, extended: bool) -> Option<char> {
     char::from_digit(u32::from(digit), 10)
 }
 
-/// The character on the key's cap in `layout`.
 fn base_char(vk: VIRTUAL_KEY, layout: HKL) -> Option<char> {
     let mapped = unsafe { MapVirtualKeyExW(u32::from(vk), MAPVK_VK_TO_CHAR, layout) };
     // The high bit flags a dead key; the character is in the low bits.
     char::from_u32(mapped & 0x7FFF).filter(|c| *c != '\0' && !c.is_control())
 }
 
-/// What the press types with `mods` held. Flag 0x4 leaves the kernel's keyboard
-/// state alone, so a dead key the user pressed still combines with their next key.
+/// Flag 0x4 leaves the kernel's keyboard state alone, so a dead key the user
+/// pressed still combines with their next key.
 fn to_unicode(vk: VIRTUAL_KEY, scan: u32, mods: Mods, layout: HKL) -> Option<char> {
     const DOWN: u8 = 0x80;
     let mut state = [0u8; 256];

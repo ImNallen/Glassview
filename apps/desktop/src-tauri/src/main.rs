@@ -27,8 +27,6 @@ use std::sync::{Arc, Mutex};
 use tauri::Manager;
 
 fn main() {
-    // Release builds have no console, so record panics in the log before the
-    // default hook prints them and the process unwinds or aborts.
     let default_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
         log::error!("{info}\n{}", std::backtrace::Backtrace::force_capture());
@@ -41,8 +39,6 @@ fn main() {
             let handle = app.clone();
             let _ = app.run_on_main_thread(move || open_settings(&handle));
         }))
-        // Writes to ~/Library/Logs/dev.glassview.desktop on macOS and
-        // %LOCALAPPDATA%\dev.glassview.desktop\logs on Windows.
         .plugin(
             tauri_plugin_log::Builder::new()
                 .level(log::LevelFilter::Info)
@@ -99,7 +95,6 @@ fn setup(app: &mut tauri::App) -> std::result::Result<(), Box<dyn std::error::Er
         std::env::consts::OS,
         std::env::consts::ARCH
     );
-    // Problems found while starting are shown together once the windows exist.
     let mut problems = Vec::new();
     let handle = app.handle().clone();
     let (preferences, warning) = Preferences::load(&handle);
@@ -124,7 +119,6 @@ fn setup(app: &mut tauri::App) -> std::result::Result<(), Box<dyn std::error::Er
     app.manage(pipeline.clone());
     overlays::create_settings(app)?;
     tray::create_tray(app)?;
-    // Glassview still explains itself without overlays or input, so these are not fatal.
     problems.extend(
         overlays::sync(&handle, &layout)
             .err()
@@ -145,7 +139,6 @@ fn setup(app: &mut tauri::App) -> std::result::Result<(), Box<dyn std::error::Er
     }
     problems.extend(commands::apply(&handle).err().map(|e| e.to_string()));
     let session = snapshot(&handle);
-    // Nothing else is on screen at launch, so Settings explains first runs and problems.
     if !problems.is_empty() || session.shortcut_unavailable || !session.preferences.onboarded {
         open_settings(&handle);
     }
