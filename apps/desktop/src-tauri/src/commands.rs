@@ -63,10 +63,25 @@ pub(crate) fn perform(app: &tauri::AppHandle, action: Action) -> Result<()> {
     }
     apply(app)?;
     if action == Action::OpenSettings {
+        // A menu-bar app is never frontmost on its own, so Settings would open behind
+        // the active app and not become key, which keeps Escape from reaching it.
+        #[cfg(target_os = "macos")]
+        app.run_on_main_thread(activate)?;
         settings.show()?;
         settings.set_focus()?;
     }
     Ok(())
+}
+
+/// `activate` needs macOS 14; this supports 12.
+#[cfg(target_os = "macos")]
+fn activate() {
+    use objc2_app_kit::NSApplication;
+    let Some(mtm) = objc2::MainThreadMarker::new() else {
+        return;
+    };
+    #[allow(deprecated)]
+    NSApplication::sharedApplication(mtm).activateIgnoringOtherApps(true);
 }
 
 /// Projects the session onto the overlays, the input gate, the pipeline, Settings,

@@ -8,10 +8,12 @@ use crate::{
     state::report,
     Result,
 };
+use block2::RcBlock;
+use objc2_app_kit::{NSEvent, NSEventMask};
 use objc2_core_foundation::{kCFRunLoopCommonModes, CFMachPort, CFRetained, CFRunLoop};
 use objc2_core_graphics::{
-    CGEvent, CGEventField, CGEventFlags, CGEventMask, CGEventTapCallBack, CGEventTapLocation,
-    CGEventTapOptions, CGEventTapPlacement, CGEventTapProxy, CGEventType,
+    CGEvent, CGEventField, CGEventFlags, CGEventTapLocation, CGEventTapOptions,
+    CGEventTapPlacement, CGEventTapProxy, CGEventType,
 };
 use std::{
     ffi::c_void,
@@ -64,25 +66,14 @@ extern "C" {
 
 static SINK: OnceLock<Sink> = OnceLock::new();
 // Kept for the app's lifetime so a tap the system disables can be re-enabled.
-static MOUSE_TAP: AtomicPtr<CFMachPort> = AtomicPtr::new(null_mut());
 static KEY_TAP: AtomicPtr<CFMachPort> = AtomicPtr::new(null_mut());
 
 pub(super) fn start(app: &tauri::AppHandle, sink: Sink) -> Result<()> {
     if SINK.set(sink).is_err() {
         return Err("Input capture is already running".into());
     }
-    // Mouse events from a listen-only tap need no permission, so clicks work on first launch.
-    let mouse = [
-        CGEventType::LeftMouseDown,
-        CGEventType::RightMouseDown,
-        CGEventType::OtherMouseDown,
-        CGEventType::MouseMoved,
-        CGEventType::LeftMouseDragged,
-        CGEventType::RightMouseDragged,
-        CGEventType::OtherMouseDragged,
-    ];
-    install_tap(mask(&mouse), Some(mouse_callback), &MOUSE_TAP)?;
-    log::info!("Installed the mouse event tap");
+    install_mouse_monitor()?;
+    log::info!("Installed the mouse event monitor");
     match key_access() {
         KeyAccess::Granted => install_key_tap(),
         access => {
@@ -114,8 +105,49 @@ pub(super) fn request_key_access(app: &tauri::AppHandle) -> Result<()> {
     }
 }
 
+/// An AppKit global monitor, not an event tap: creating any tap, even a listen-only
+/// mouse tap, shows the Input Monitoring prompt and records a denial before the user
+/// chooses. A monitor needs no permission and calls back on the main thread.
+fn install_mouse_monitor() -> Result<()> {
+    let mask = NSEventMask::LeftMouseDown
+        | NSEventMask::RightMouseDown
+        | NSEventMask::OtherMouseDown
+        | NSEventMask::MouseMoved
+        | NSEventMask::LeftMouseDragged
+        | NSEventMask::RightMouseDragged
+        | NSEventMask::OtherMouseDragged;
+    let handler = RcBlock::new(|event: NonNull<NSEvent>| {
+        // A panic must not unwind into AppKit.
+        let _ = catch_unwind(AssertUnwindSafe(|| on_mouse(unsafe { event.as_ref() })));
+    });
+    let monitor = NSEvent::addGlobalMonitorForEventsMatchingMask_handler(mask, &handler)
+        .ok_or("macOS refused to monitor mouse events")?;
+    // Never removed, so the monitor lives as long as the app.
+    std::mem::forget(monitor);
+    Ok(())
+}
+
+/// A listen-only session tap whose source joins the main run loop in common modes, so
+/// callbacks run on the main thread (UCKeyTranslate requires it) and keep firing
+/// during menu tracking. Listen-only taps never delay input.
 fn install_key_tap() -> Result<()> {
-    install_tap(mask(&[CGEventType::KeyDown]), Some(key_callback), &KEY_TAP)?;
+    let tap = unsafe {
+        CGEvent::tap_create(
+            CGEventTapLocation::SessionEventTap,
+            CGEventTapPlacement::HeadInsertEventTap,
+            CGEventTapOptions::ListenOnly,
+            1 << CGEventType::KeyDown.0,
+            Some(key_callback),
+            null_mut(),
+        )
+    }
+    .ok_or("macOS refused to create an event tap")?;
+    let source = CFMachPort::new_run_loop_source(None, Some(&tap), 0)
+        .ok_or("Could not attach the event tap")?;
+    let run_loop = CFRunLoop::main().ok_or("The main run loop is unavailable")?;
+    run_loop.add_source(Some(&source), unsafe { kCFRunLoopCommonModes });
+    CGEvent::tap_enable(&tap, true);
+    KEY_TAP.store(CFRetained::into_raw(tap).as_ptr(), Ordering::Release);
     log::info!("Installed the keyboard event tap");
     Ok(())
 }
@@ -147,43 +179,9 @@ fn watch_key_access(app: tauri::AppHandle, mut last: KeyAccess) {
     });
 }
 
-fn mask(types: &[CGEventType]) -> CGEventMask {
-    types.iter().fold(0, |mask, kind| mask | 1 << kind.0)
-}
-
-/// A listen-only session tap whose source joins the main run loop in common modes, so
-/// callbacks run on the main thread (UCKeyTranslate requires it) and keep firing
-/// during menu tracking. Listen-only taps never delay input.
-fn install_tap(
-    mask: CGEventMask,
-    callback: CGEventTapCallBack,
-    slot: &AtomicPtr<CFMachPort>,
-) -> Result<()> {
-    let tap = unsafe {
-        CGEvent::tap_create(
-            CGEventTapLocation::SessionEventTap,
-            CGEventTapPlacement::HeadInsertEventTap,
-            CGEventTapOptions::ListenOnly,
-            mask,
-            callback,
-            null_mut(),
-        )
-    }
-    .ok_or("macOS refused to create an event tap")?;
-    let source = CFMachPort::new_run_loop_source(None, Some(&tap), 0)
-        .ok_or("Could not attach the event tap")?;
-    let run_loop = CFRunLoop::main().ok_or("The main run loop is unavailable")?;
-    run_loop.add_source(Some(&source), unsafe { kCFRunLoopCommonModes });
-    CGEvent::tap_enable(&tap, true);
-    slot.store(CFRetained::into_raw(tap).as_ptr(), Ordering::Release);
-    Ok(())
-}
-
-fn reenable_taps() {
-    for slot in [&MOUSE_TAP, &KEY_TAP] {
-        if let Some(tap) = NonNull::new(slot.load(Ordering::Acquire)) {
-            CGEvent::tap_enable(unsafe { tap.as_ref() }, true);
-        }
+fn reenable_key_tap() {
+    if let Some(tap) = NonNull::new(KEY_TAP.load(Ordering::Acquire)) {
+        CGEvent::tap_enable(unsafe { tap.as_ref() }, true);
     }
 }
 
@@ -196,30 +194,16 @@ fn location(event: &CGEvent) -> Point {
     Point { x: at.x, y: at.y }
 }
 
-unsafe extern "C-unwind" fn mouse_callback(
-    _proxy: CGEventTapProxy,
-    kind: CGEventType,
-    event: NonNull<CGEvent>,
-    _user_info: *mut c_void,
-) -> *mut CGEvent {
-    // A panic must not unwind into CoreGraphics.
-    let _ = catch_unwind(AssertUnwindSafe(|| {
-        on_mouse(kind, unsafe { event.as_ref() })
-    }));
-    event.as_ptr()
-}
-
-fn on_mouse(kind: CGEventType, event: &CGEvent) {
-    if matches!(
-        kind,
-        CGEventType::TapDisabledByTimeout | CGEventType::TapDisabledByUserInput
-    ) {
-        return reenable_taps();
-    }
+fn on_mouse(event: &NSEvent) {
     let Some(sink) = SINK.get().filter(|sink| sink.gate.enabled()) else {
         return;
     };
-    let button = match kind {
+    // The CGEvent's location is in global top-left points, the space `Layout` uses.
+    let Some(event) = event.CGEvent() else {
+        return;
+    };
+    let event = &*event;
+    let button = match CGEvent::r#type(Some(event)) {
         CGEventType::LeftMouseDown => Button::Left,
         CGEventType::RightMouseDown => Button::Right,
         // Buttons 3 and up are back, forward, and other extras, which get no ripple.
@@ -247,7 +231,7 @@ unsafe extern "C-unwind" fn key_callback(
 
 fn on_key(kind: CGEventType, event: &CGEvent) {
     if kind != CGEventType::KeyDown {
-        return reenable_taps();
+        return reenable_key_tap();
     }
     let Some(sink) = SINK.get().filter(|sink| sink.gate.enabled()) else {
         return;

@@ -65,8 +65,8 @@ impl Sink {
     }
 }
 
-/// Installs input capture for the app's lifetime. Runs on the main thread, since
-/// macOS taps join the main run loop. Errors are explained in Settings, not fatal.
+/// Installs input capture for the app's lifetime. Runs on the main thread, since the
+/// macOS monitor and tap attach to it. Errors are explained in Settings, not fatal.
 pub(crate) fn start(app: &tauri::AppHandle, sink: Sink) -> Result<()> {
     #[cfg(target_os = "macos")]
     return macos::start(app, sink);

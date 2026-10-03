@@ -1329,6 +1329,7 @@ dependencies = [
 name = "glassview"
 version = "0.1.0"
 dependencies = [
+ "block2",
  "log",
  "objc2",
  "objc2-app-kit",

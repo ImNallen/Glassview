@@ -82,12 +82,14 @@
       </div>
       <label class="row"><span class="row-label">Fade after<small>{(preferences.fadeMs / 1000).toFixed(1)} s without a key</small></span>
         <input type="range" min="500" max="5000" step="100" value={preferences.fadeMs} oninput={event => update({ fadeMs: event.currentTarget.valueAsNumber })}/></label>
-    </div>
-    <div class="positions" role="group" aria-label="Pill position">
-      {#each POSITIONS as position}
-        <button class={`position ${position.id}`} class:chosen={preferences.pillPosition === position.id} aria-pressed={preferences.pillPosition === position.id}
-          title={position.label} aria-label={position.label} onclick={() => update({ pillPosition: position.id })}><span></span></button>
-      {/each}
+      <div class="row"><span class="row-label" id="position-label">Pill position</span>
+        <div class="positions" role="group" aria-labelledby="position-label">
+          {#each POSITIONS as position}
+            <button class={`position ${position.id}`} class:chosen={preferences.pillPosition === position.id} aria-pressed={preferences.pillPosition === position.id}
+              title={position.label} aria-label={position.label} onclick={() => update({ pillPosition: position.id })}><span></span></button>
+          {/each}
+        </div>
+      </div>
     </div>
   </section>
 
@@ -143,8 +145,8 @@
   .segmented button.chosen { background: var(--gb-input-surface); color: var(--gb-strong-text); box-shadow: 0 0 0 1px var(--gb-selected-border), 0 1px 2px var(--gb-shadow); }
   .segmented.compact button { height: 22px; font-size: 11px; }
 
-  .positions { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 10px; }
-  .position { position: relative; height: 34px; border-radius: 7px; border: 1px solid var(--gb-border); background: var(--gb-input-surface); transition: border-color .12s, box-shadow .12s; }
+  .positions { display: grid; grid-template-columns: repeat(5, 30px); gap: 5px; }
+  .position { position: relative; height: 28px; border-radius: 7px; border: 1px solid var(--gb-border); background: var(--gb-input-surface); transition: border-color .12s, box-shadow .12s; }
   .position span { position: absolute; width: 14px; height: 4px; border-radius: 2px; background: var(--gb-muted); opacity: .55; }
   .position.top-left span { top: 5px; left: 5px; }
   .position.top-right span { top: 5px; right: 5px; }
