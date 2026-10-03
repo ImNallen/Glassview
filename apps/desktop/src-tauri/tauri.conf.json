@@ -1,0 +1,15 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Glassview", "version": "../package.json", "identifier": "dev.glassview.desktop",
+  "build": { "beforeDevCommand": "npm run dev", "devUrl": "http://127.0.0.1:1420", "beforeBuildCommand": "npm run build", "frontendDist": "../dist" },
+  "app": { "macOSPrivateApi": true, "windows": [], "security": { "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: data:; connect-src ipc: http://ipc.localhost" } },
+  "bundle": {
+    "active": true, "targets": ["app", "dmg", "nsis"],
+    "icon": ["icons/icon.png", "icons/icon.ico", "icons/icon.icns"],
+    "publisher": "Glassview", "copyright": "Copyright © 2026 Adam Nilsson", "license": "MIT",
+    "homepage": "https://github.com/ImNallen/Glassview", "category": "Productivity",
+    "shortDescription": "Show your clicks and shortcuts on screen.",
+    "longDescription": "Glassview draws a ripple where you click and shows the shortcuts you press, so viewers of a screen recording or live demo can follow along. It runs locally and never shows typed text unless you ask it to.",
+    "macOS": { "minimumSystemVersion": "12.0" }
+  }
+}

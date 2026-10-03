@@ -1,0 +1,21 @@
+{
+  "name": "glassview",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "desktop": "npm --workspace apps/desktop run --",
+    "check": "npm run check --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=22.12"
+  },
+  "allowScripts": {
+    "esbuild": true
+  }
+}
