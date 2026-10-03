@@ -57,10 +57,11 @@ Glassview starts on. On first launch, Settings opens to explain what it shows.
 | --- | --- | --- |
 | Turn Glassview on or off (global) | ⌥⇧⌘K | Ctrl+Alt+Shift+K |
 
-You can also turn it on or off from the menu bar icon on macOS, by left-clicking the
-tray icon on Windows, or with the switch in Settings. Open Settings from the menu bar or
-tray menu (right-click the tray icon on Windows). The toggle shortcut is fixed in this
-version. If another app already uses it, Settings says so and the icon still works.
+Left-click the menu bar or tray icon to open Settings next to the icon. The panel
+opens beneath the icon, or above a bottom taskbar, and stays in place. Right-click
+the icon to turn Glassview on or off, or quit. You can also use the switch in Settings.
+The toggle shortcut is fixed in this version. If another app already uses it,
+Settings says so and the icon still works.
 
 Settings has:
 

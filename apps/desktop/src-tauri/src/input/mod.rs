@@ -84,15 +84,6 @@ pub(crate) fn key_access() -> KeyAccess {
     KeyAccess::Granted
 }
 
-pub(crate) fn cursor() -> Option<Point> {
-    #[cfg(target_os = "macos")]
-    return macos::cursor();
-    #[cfg(target_os = "windows")]
-    return windows::cursor();
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    None
-}
-
 pub(crate) fn request_key_access(app: &tauri::AppHandle) -> Result<()> {
     #[cfg(target_os = "macos")]
     return macos::request_key_access(app);

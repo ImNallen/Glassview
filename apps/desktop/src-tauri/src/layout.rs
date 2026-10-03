@@ -20,6 +20,24 @@ impl Rect {
     }
 }
 
+pub(crate) fn settings_bounds(anchor: Rect, work_area: Rect, size: (f64, f64), gap: f64) -> Rect {
+    let width = size.0.min(work_area.width);
+    let height = size.1.min(work_area.height);
+    let below = anchor.y + anchor.height + gap;
+    let y = if below + height <= work_area.y + work_area.height {
+        below
+    } else {
+        anchor.y - gap - height
+    };
+    Rect {
+        x: (anchor.x + (anchor.width - width) / 2.0)
+            .clamp(work_area.x, work_area.x + work_area.width - width),
+        y: y.clamp(work_area.y, work_area.y + work_area.height - height),
+        width,
+        height,
+    }
+}
+
 /// The space native input arrives in, which is also the space overlay windows are placed in:
 /// macOS points from the primary display's top-left (Tauri Logical), Windows physical
 /// virtual-screen pixels (Tauri Physical).
@@ -258,5 +276,51 @@ mod tests {
             Some((0, at(2044.0, 1148.0)))
         );
         assert_eq!(layout.locate(at(100.0, 100.0)), Some((1, at(100.0, 100.0))));
+    }
+
+    #[test]
+    fn settings_open_below_the_menu_bar_and_clamp_at_both_edges() {
+        let work = rect(0.0, 24.0, 1440.0, 850.0);
+        for (x, expected_x) in [(700.0, 522.0), (0.0, 0.0), (1416.0, 1060.0)] {
+            assert_eq!(
+                settings_bounds(rect(x, 0.0, 24.0, 24.0), work, (380.0, 600.0), 6.0),
+                rect(expected_x, 30.0, 380.0, 600.0)
+            );
+        }
+    }
+
+    #[test]
+    fn settings_open_above_a_bottom_taskbar_at_the_tray_display_scale() {
+        assert_eq!(
+            settings_bounds(
+                rect(3760.0, 2120.0, 32.0, 32.0),
+                rect(0.0, 0.0, 3840.0, 2100.0),
+                (570.0, 900.0),
+                9.0
+            ),
+            rect(3270.0, 1200.0, 570.0, 900.0)
+        );
+        assert_eq!(
+            settings_bounds(
+                rect(5700.0, 1040.0, 24.0, 24.0),
+                rect(3840.0, 0.0, 1920.0, 1040.0),
+                (380.0, 600.0),
+                6.0
+            ),
+            rect(5380.0, 434.0, 380.0, 600.0)
+        );
+    }
+
+    #[test]
+    fn settings_fit_a_short_display_at_a_negative_origin() {
+        assert_eq!(
+            settings_bounds(
+                rect(-30.0, -200.0, 24.0, 24.0),
+                rect(-1280.0, -176.0, 1280.0, 550.0),
+                (380.0, 600.0),
+                6.0
+            ),
+            rect(-380.0, -176.0, 380.0, 550.0)
+        );
     }
 }
