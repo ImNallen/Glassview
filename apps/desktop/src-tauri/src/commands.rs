@@ -40,7 +40,6 @@ pub(crate) fn set_preferences(app: tauri::AppHandle, preferences: serde_json::Va
     apply(&app)
 }
 
-/// Every toggle source (hotkey, tray, Settings) and every other action comes through here.
 pub(crate) fn perform(app: &tauri::AppHandle, action: Action) -> Result<()> {
     match action {
         Action::RequestKeyAccess => return input::request_key_access(app),

@@ -193,10 +193,10 @@ impl Stroke {
 fn key_name(key: Key, os: Os) -> String {
     let named = match key {
         Key::Char(c) => return c.to_uppercase().collect(),
-        Key::Named(Named::F(n)) => return format!("F{n}"),
         Key::Named(named) => named,
     };
     let (mac, windows) = match named {
+        Named::F(n) => return format!("F{n}"),
         Named::Enter => ("↩", "Enter"),
         Named::Tab => ("⇥", "Tab"),
         Named::Space => ("␣", "Space"),
@@ -212,7 +212,6 @@ fn key_name(key: Key, os: Os) -> String {
         Named::End => ("↘", "End"),
         Named::PageUp => ("⇞", "PgUp"),
         Named::PageDown => ("⇟", "PgDn"),
-        Named::F(_) => unreachable!("F-keys return above"),
     };
     match os {
         Os::Mac => mac,

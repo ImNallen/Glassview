@@ -17,7 +17,6 @@ export function reduce(view: OverlayView, event: OverlayEvent, now: number, fade
     case 'key': return { ...view, pill: pushStroke(view.pill, event.stroke, now, fadeMs) };
   }
 }
-/** Removes a ripple once its animation ends. */
 export function dropRipple(view: OverlayView, id: number): OverlayView {
   return { ...view, ripples: view.ripples.filter(ripple => ripple.id !== id) };
 }
