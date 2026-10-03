@@ -185,10 +185,6 @@ fn reenable_key_tap() {
     }
 }
 
-pub(super) fn cursor() -> Option<Point> {
-    CGEvent::new(None).map(|event| location(&event))
-}
-
 fn location(event: &CGEvent) -> Point {
     let at = CGEvent::location(Some(event));
     Point { x: at.x, y: at.y }

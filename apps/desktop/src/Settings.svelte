@@ -121,7 +121,7 @@
 </main>
 
 <style>
-  .settings { color-scheme: light dark; display: flex; flex-direction: column; height: 100vh; overflow-y: auto; padding: 16px 14px 0; background: var(--gb-surface); scrollbar-width: thin; }
+  .settings { color-scheme: light dark; display: flex; flex-direction: column; height: 100vh; border-radius: 12px; overflow-y: auto; padding: 16px 14px 0; background: var(--gb-surface); scrollbar-width: thin; }
   header { display: flex; align-items: center; margin: 0 2px 14px; }
   .brand { display: flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 600; letter-spacing: -.2px; color: var(--gb-strong-text); }
   .version { margin-left: 1px; padding: 2px 6px; border-radius: 999px; background: color-mix(in srgb, var(--gb-text) 7%, transparent); font-size: 10px; font-weight: 500; letter-spacing: 0; color: var(--gb-muted); font-variant-numeric: tabular-nums; }

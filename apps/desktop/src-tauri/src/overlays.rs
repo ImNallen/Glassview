@@ -1,9 +1,9 @@
 use crate::{
-    commands, input,
-    layout::{InputSpace, Layout, MonitorInfo, Point, Rect},
+    commands,
+    layout::{settings_bounds, InputSpace, Layout, MonitorInfo, Rect},
     pipeline::{Msg, PipelineHandle},
     state::report,
-    Result,
+    tray, Result,
 };
 use std::time::Duration;
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
@@ -52,19 +52,62 @@ pub(crate) fn current_layout(app: &tauri::AppHandle) -> Result<Layout> {
 }
 
 pub(crate) fn create_settings(app: &tauri::App) -> tauri::Result<()> {
-    WebviewWindowBuilder::new(
+    let window = WebviewWindowBuilder::new(
         app,
         Surface::Settings.label(),
         WebviewUrl::App(format!("index.html?surface={}", Surface::Settings.url()).into()),
     )
     .title("Glassview Settings")
     .inner_size(SETTINGS_CSS_SIZE.0, SETTINGS_CSS_SIZE.1)
+    .transparent(true)
+    .decorations(false)
+    .shadow(true)
+    .always_on_top(true)
+    .skip_taskbar(true)
     .resizable(false)
     .maximizable(false)
     .minimizable(false)
     .visible(false)
     .build()?;
+    #[cfg(target_os = "macos")]
+    {
+        if let Ok(ptr) = window.ns_window() {
+            let native = unsafe { &*(ptr as *const objc2_app_kit::NSWindow) };
+            native.setMovable(false);
+            native.setMovableByWindowBackground(false);
+        }
+        watch_settings_deactivation(app.handle().clone());
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = window;
     Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn close_settings(app: &tauri::AppHandle) {
+    if crate::state::snapshot(app).settings_open {
+        if let Err(error) = commands::perform(app, crate::session::Action::CloseSettings) {
+            report(app, error);
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn watch_settings_deactivation(app: tauri::AppHandle) {
+    use objc2_app_kit::NSApplicationDidResignActiveNotification;
+    use objc2_foundation::{NSNotification, NSNotificationCenter};
+    let handler = block2::RcBlock::new(move |_: std::ptr::NonNull<NSNotification>| {
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| close_settings(&app)));
+    });
+    let observer = unsafe {
+        NSNotificationCenter::defaultCenter().addObserverForName_object_queue_usingBlock(
+            Some(NSApplicationDidResignActiveNotification),
+            None,
+            None,
+            &handler,
+        )
+    };
+    std::mem::forget(observer);
 }
 
 pub(crate) fn sync(app: &tauri::AppHandle, layout: &Layout) -> Result<()> {
@@ -236,23 +279,56 @@ fn set_native_visible(window: &tauri::WebviewWindow, visible: bool) {
     let _ = (window, visible);
 }
 
-pub(crate) fn center_settings(app: &tauri::AppHandle, window: &tauri::WebviewWindow) -> Result<()> {
-    let layout = current_layout(app)?;
-    let display = input::cursor()
-        .and_then(|cursor| layout.locate(cursor))
-        .and_then(|(index, _)| layout.displays().get(index))
-        .or(layout.displays().first())
-        .ok_or("No display is available for settings")?;
-    let (bounds, k) = (display.bounds, display.css_per_unit);
-    let at = Point {
-        x: bounds.x + (bounds.width - SETTINGS_CSS_SIZE.0 / k) / 2.0,
-        y: bounds.y + (bounds.height - SETTINGS_CSS_SIZE.1 / k) / 2.0,
+pub(crate) fn anchor_settings(app: &tauri::AppHandle, window: &tauri::WebviewWindow) -> Result<()> {
+    let anchor = tray::bounds(app)?;
+    let center = (
+        anchor.x + anchor.width / 2.0,
+        anchor.y + anchor.height / 2.0,
+    );
+    let monitors = app.available_monitors()?;
+    let monitor = monitors
+        .iter()
+        .find(|monitor| {
+            let k = if cfg!(target_os = "macos") {
+                monitor.scale_factor()
+            } else {
+                1.0
+            };
+            let (x, y) = (
+                f64::from(monitor.position().x) / k,
+                f64::from(monitor.position().y) / k,
+            );
+            center.0 >= x
+                && center.1 >= y
+                && center.0 < x + f64::from(monitor.size().width) / k
+                && center.1 < y + f64::from(monitor.size().height) / k
+        })
+        .ok_or("Tray display is unavailable")?;
+    let area = monitor.work_area();
+    let k = if cfg!(target_os = "macos") {
+        monitor.scale_factor()
+    } else {
+        1.0
     };
-    #[cfg(target_os = "macos")]
-    window.set_position(tauri::LogicalPosition::new(at.x, at.y))?;
-    #[cfg(not(target_os = "macos"))]
-    window.set_position(tauri::PhysicalPosition::new(at.x as i32, at.y as i32))?;
-    Ok(())
+    let units_per_css = monitor.scale_factor() / k;
+    let work_area = Rect {
+        x: f64::from(area.position.x) / k,
+        y: f64::from(area.position.y) / k,
+        width: f64::from(area.size.width) / k,
+        height: f64::from(area.size.height) / k,
+    };
+    place(
+        window,
+        settings_bounds(
+            anchor,
+            work_area,
+            (
+                SETTINGS_CSS_SIZE.0 * units_per_css,
+                SETTINGS_CSS_SIZE.1 * units_per_css,
+            ),
+            6.0 * units_per_css,
+        ),
+    )
 }
 
 pub(crate) fn watch_displays(app: tauri::AppHandle, initial: Layout) {

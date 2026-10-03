@@ -1,5 +1,6 @@
 use crate::{
     commands::{perform, TOGGLE_SHORTCUT},
+    layout::Rect,
     session::{Action, KeyAccess, Session},
     state::report,
     Result,
@@ -60,13 +61,6 @@ pub(crate) fn create_tray(app: &tauri::App) -> tauri::Result<()> {
         true,
         Some(TOGGLE_SHORTCUT),
     )?;
-    let settings = MenuItem::with_id(
-        app,
-        menu_id(Action::OpenSettings),
-        "Settings…",
-        true,
-        None::<&str>,
-    )?;
     let request_key_access = MenuItem::with_id(
         app,
         menu_id(Action::RequestKeyAccess),
@@ -82,28 +76,24 @@ pub(crate) fn create_tray(app: &tauri::App) -> tauri::Result<()> {
         None::<&str>,
     )?;
     let separator = PredefinedMenuItem::separator(app)?;
-    let menu = Menu::with_items(app, &[&toggle, &settings, &separator, &quit])?;
+    let menu = Menu::with_items(app, &[&toggle, &separator, &quit])?;
     tauri::tray::TrayIconBuilder::with_id(TRAY_ID)
         .icon(icon(true))
         .icon_as_template(cfg!(target_os = "macos"))
         .tooltip("Glassview")
         .menu(&menu)
-        // macOS menu bar items open their menu on click. A Windows tray icon toggles
-        // on left click and keeps the menu on right click.
-        .show_menu_on_left_click(cfg!(target_os = "macos"))
+        .show_menu_on_left_click(false)
         .on_tray_icon_event(|tray, event| {
             use tauri::tray::{MouseButton, MouseButtonState, TrayIconEvent};
-            if cfg!(not(target_os = "macos"))
-                && matches!(
-                    event,
-                    TrayIconEvent::Click {
-                        button: MouseButton::Left,
-                        button_state: MouseButtonState::Up,
-                        ..
-                    }
-                )
-            {
-                if let Err(error) = perform(tray.app_handle(), Action::Toggle) {
+            if matches!(
+                event,
+                TrayIconEvent::Click {
+                    button: MouseButton::Left,
+                    button_state: MouseButtonState::Up,
+                    ..
+                }
+            ) {
+                if let Err(error) = perform(tray.app_handle(), Action::OpenSettings) {
                     report(tray.app_handle(), error);
                 }
             }
@@ -148,11 +138,36 @@ pub(crate) fn sync_tray(app: &tauri::AppHandle, session: &Session) -> Result<()>
     let request = cfg!(target_os = "macos") && session.key_access != KeyAccess::Granted;
     if request != shown.request_key_access {
         if request {
-            state.menu.insert(&state.request_key_access, 2)?;
+            state.menu.insert(&state.request_key_access, 1)?;
         } else {
             state.menu.remove(&state.request_key_access)?;
         }
         shown.request_key_access = request;
     }
     Ok(())
+}
+
+pub(crate) fn bounds(app: &tauri::AppHandle) -> Result<Rect> {
+    let tray = app.tray_by_id(TRAY_ID).ok_or("Tray icon is unavailable")?;
+    #[cfg(target_os = "macos")]
+    let scale = tray
+        .with_inner_tray_icon(|tray| {
+            let mtm = objc2::MainThreadMarker::new()?;
+            tray.ns_status_item()?
+                .button(mtm)?
+                .window()
+                .map(|window| window.backingScaleFactor())
+        })?
+        .ok_or("Tray display is unavailable")?;
+    #[cfg(not(target_os = "macos"))]
+    let scale = 1.0;
+    let rect = tray.rect()?.ok_or("Tray position is unavailable")?;
+    let position = rect.position.to_physical::<f64>(scale);
+    let size = rect.size.to_physical::<f64>(scale);
+    Ok(Rect {
+        x: position.x / scale,
+        y: position.y / scale,
+        width: size.width / scale,
+        height: size.height / scale,
+    })
 }

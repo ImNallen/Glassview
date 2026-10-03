@@ -53,7 +53,7 @@ pub(crate) fn perform(app: &tauri::AppHandle, action: Action) -> Result<()> {
         .window(app)
         .ok_or("Settings window is unavailable")?;
     if action == Action::OpenSettings {
-        overlays::center_settings(app, &settings)?;
+        overlays::anchor_settings(app, &settings)?;
     }
     let save = app.state::<AppState>().0.lock().unwrap().transition(action);
     if save {
