@@ -190,35 +190,40 @@ fn place(window: &tauri::WebviewWindow, bounds: Rect) -> Result<()> {
     Ok(())
 }
 
-/// Shows overlays without activating them; Tauri's `show` would make them key on macOS.
+/// Shows overlays without activating them, since Tauri's `show` would make them key
+/// on macOS. Hiding is native too: tao on Windows tracks visibility itself and would
+/// treat a window it never showed as already hidden.
 pub(crate) fn set_overlays_visible(app: &tauri::AppHandle, visible: bool) -> Result<()> {
     for (label, window) in app.webview_windows() {
-        if !matches!(Surface::parse(&label), Some(Surface::Overlay(_))) {
-            continue;
+        if matches!(Surface::parse(&label), Some(Surface::Overlay(_))) {
+            let native = window.clone();
+            window.run_on_main_thread(move || set_native_visible(&native, visible))?;
         }
-        if !visible {
-            window.hide()?;
-            continue;
-        }
-        let native = window.clone();
-        window.run_on_main_thread(move || show_inactive(&native))?;
     }
     Ok(())
 }
 
-fn show_inactive(window: &tauri::WebviewWindow) {
+fn set_native_visible(window: &tauri::WebviewWindow, visible: bool) {
     #[cfg(target_os = "macos")]
     if let Ok(ptr) = window.ns_window() {
         let native = unsafe { &*(ptr as *const objc2_app_kit::NSWindow) };
-        native.orderFrontRegardless();
+        if visible {
+            native.orderFrontRegardless();
+        } else {
+            native.orderOut(None);
+        }
     }
     #[cfg(target_os = "windows")]
     if let Ok(hwnd) = window.hwnd() {
         use windows_sys::Win32::UI::WindowsAndMessaging::{
             SetWindowPos, ShowWindow, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
-            SW_SHOWNOACTIVATE,
+            SW_HIDE, SW_SHOWNOACTIVATE,
         };
         let hwnd = hwnd.0 as _;
+        if !visible {
+            unsafe { ShowWindow(hwnd, SW_HIDE) };
+            return;
+        }
         unsafe {
             ShowWindow(hwnd, SW_SHOWNOACTIVATE);
             SetWindowPos(
@@ -233,7 +238,7 @@ fn show_inactive(window: &tauri::WebviewWindow) {
         }
     }
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    let _ = window;
+    let _ = (window, visible);
 }
 
 /// Centers Settings on the display under the pointer, using the same layout as the overlays.
@@ -270,13 +275,22 @@ pub(crate) fn watch_displays(app: tauri::AppHandle, initial: Layout) {
                     continue;
                 }
             };
-            last = layout.clone();
-            let handle = app.clone();
-            let _ = app.run_on_main_thread(move || {
-                if let Err(error) = sync(&handle, &layout) {
+            let (done, synced) = std::sync::mpsc::channel();
+            let (handle, target) = (app.clone(), layout.clone());
+            let scheduled = app.run_on_main_thread(move || {
+                let result = sync(&handle, &target);
+                if let Err(error) = &result {
                     report(&handle, error);
                 }
+                let _ = done.send(result.is_ok());
             });
+            if scheduled.is_err() {
+                break;
+            }
+            // A failed sync is retried on the next poll rather than waiting for another change.
+            if synced.recv() == Ok(true) {
+                last = layout;
+            }
         }
     });
 }

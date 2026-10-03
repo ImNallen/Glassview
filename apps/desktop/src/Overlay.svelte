@@ -12,19 +12,20 @@
   let timer: ReturnType<typeof setTimeout> | undefined;
   // A hidden overlay's timers may be throttled, so nothing stale survives turning Glassview off.
   $effect(() => { if (!session.enabled) { clearTimeout(timer); view = initial; fading = false; } });
-  function keyPressed() {
+  function keyPressed(fadeMs: number) {
     clearTimeout(timer);
     fading = false;
     timer = setTimeout(() => {
       fading = true;
-      timer = setTimeout(() => { view = expirePill(view, performance.now(), preferences.fadeMs); fading = false; }, FADE_OUT_MS);
-    }, preferences.fadeMs - FADE_OUT_MS);
+      timer = setTimeout(() => { view = expirePill(view, performance.now(), fadeMs); fading = false; }, FADE_OUT_MS);
+    }, fadeMs - FADE_OUT_MS);
   }
   onMount(() => {
     let disposed = false, stop = () => {};
     onOverlay(event => {
-      view = reduce(view, event, performance.now(), preferences.fadeMs);
-      if (event.kind === 'key') keyPressed();
+      const fadeMs = preferences.fadeMs;
+      view = reduce(view, event, performance.now(), fadeMs);
+      if (event.kind === 'key') keyPressed(fadeMs);
     }).then(fn => { if (disposed) fn(); else stop = fn; }).catch(error => console.error(error));
     return () => { disposed = true; stop(); clearTimeout(timer); };
   });
