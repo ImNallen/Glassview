@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+<title>Glassview</title>
+<circle cx="12" cy="12" r="2.5" fill="#4FC5D5"/>
+<circle cx="12" cy="12" r="5.75" stroke="#4FC5D5" stroke-width="2"/>
+<g opacity="0.55"><circle cx="12" cy="12" r="10" stroke="#4FC5D5" stroke-width="1.5"/></g>
+</svg>
