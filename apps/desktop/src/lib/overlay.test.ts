@@ -5,15 +5,15 @@ const FADE = 1500;
 
 describe('overlay view', () => {
   it('adds a ripple per click with increasing ids and drops it when its animation ends', () => {
-    let view = reduce(initial, { kind: 'click', button: 'left', x: 412, y: 88 }, 0, FADE);
-    view = reduce(view, { kind: 'click', button: 'middle', x: 1, y: 2 }, 0, FADE);
+    let view = reduce(initial, { kind: 'click', button: 'left', mods: null, x: 412, y: 88 }, 0, FADE);
+    view = reduce(view, { kind: 'click', button: 'middle', mods: null, x: 1, y: 2 }, 0, FADE);
     expect(view.ripples).toEqual([{ id: 0, button: 'left', x: 412, y: 88 }, { id: 1, button: 'middle', x: 1, y: 2 }]);
     expect(dropRipple(view, 0).ripples).toEqual([{ id: 1, button: 'middle', x: 1, y: 2 }]);
   });
 
   it('keeps only the newest ripples during a click storm', () => {
     let view = initial;
-    for (let i = 0; i < 30; i++) view = reduce(view, { kind: 'click', button: 'right', x: i, y: 0 }, 0, FADE);
+    for (let i = 0; i < 30; i++) view = reduce(view, { kind: 'click', button: 'right', mods: null, x: i, y: 0 }, 0, FADE);
     expect(view.ripples.length).toBe(MAX_RIPPLES);
     expect(view.ripples[0]).toEqual({ id: 6, button: 'right', x: 6, y: 0 });
   });

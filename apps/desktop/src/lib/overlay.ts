@@ -13,6 +13,7 @@ export function reduce(view: OverlayView, event: OverlayEvent, now: number, fade
       return { ...view, ripples: [...view.ripples, ripple].slice(-MAX_RIPPLES), nextId: view.nextId + 1 };
     }
     case 'halo': return { ...view, halo: event.at };
+    case 'hold': return view;
     case 'key': return { ...view, pill: pushStroke(view.pill, event.stroke, now, fadeMs) };
   }
 }

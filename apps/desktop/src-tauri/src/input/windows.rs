@@ -19,7 +19,8 @@ use windows_sys::Win32::{
             CallNextHookEx, DispatchMessageW, GetCursorPos, GetForegroundWindow, GetMessageW,
             GetWindowThreadProcessId, SetWindowsHookExW, HC_ACTION, KBDLLHOOKSTRUCT,
             LLKHF_EXTENDED, MSG, MSLLHOOKSTRUCT, WH_KEYBOARD_LL, WH_MOUSE_LL, WM_KEYDOWN,
-            WM_LBUTTONDOWN, WM_MBUTTONDOWN, WM_MOUSEMOVE, WM_RBUTTONDOWN, WM_SYSKEYDOWN,
+            WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEMOVE,
+            WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SYSKEYDOWN,
         },
     },
 };
@@ -83,12 +84,41 @@ fn on_mouse(message: u32, event: &MSLLHOOKSTRUCT) {
         y: f64::from(event.pt.y),
     };
     match message {
-        WM_LBUTTONDOWN => sink.click(Button::Left, at),
-        WM_RBUTTONDOWN => sink.click(Button::Right, at),
-        WM_MBUTTONDOWN => sink.click(Button::Middle, at),
-        WM_MOUSEMOVE => sink.moved(at),
+        WM_LBUTTONDOWN => sink.press(Button::Left, held_mods(), at),
+        WM_RBUTTONDOWN => sink.press(Button::Right, held_mods(), at),
+        WM_MBUTTONDOWN => sink.press(Button::Middle, held_mods(), at),
+        WM_LBUTTONUP => sink.release(Button::Left, at),
+        WM_RBUTTONUP => sink.release(Button::Right, at),
+        WM_MBUTTONUP => sink.release(Button::Middle, at),
+        WM_MOUSEMOVE => sink.moved(at, sink.holding() && any_button_held()),
         _ => {}
     }
+}
+
+/// In a low-level hook the async state is the state before this event, which is
+/// exactly what is held. It is global, so a release inside an elevated window
+/// the hook cannot see still clears it.
+fn held(key: VIRTUAL_KEY) -> bool {
+    (unsafe { GetAsyncKeyState(i32::from(key)) }) < 0
+}
+
+fn held_mods() -> Mods {
+    [
+        (VK_CONTROL, Mods::CTRL),
+        (VK_MENU, Mods::ALT),
+        (VK_SHIFT, Mods::SHIFT),
+        (VK_LWIN, Mods::META),
+        (VK_RWIN, Mods::META),
+    ]
+    .into_iter()
+    .filter(|(key, _)| held(*key))
+    .fold(Mods::NONE, |mods, (_, m)| mods | m)
+}
+
+fn any_button_held() -> bool {
+    [VK_LBUTTON, VK_RBUTTON, VK_MBUTTON, VK_XBUTTON1, VK_XBUTTON2]
+        .into_iter()
+        .any(held)
 }
 
 fn on_key(event: &KBDLLHOOKSTRUCT) {
@@ -99,20 +129,7 @@ fn on_key(event: &KBDLLHOOKSTRUCT) {
     if is_modifier(vk) {
         return;
     }
-    // In a low-level hook the async state is the state before this event, which is
-    // exactly what is held. It is global, so a release inside an elevated window
-    // the hook cannot see still clears it.
-    let held = |key: VIRTUAL_KEY| unsafe { GetAsyncKeyState(i32::from(key)) } < 0;
-    let mods = [
-        (VK_CONTROL, Mods::CTRL),
-        (VK_MENU, Mods::ALT),
-        (VK_SHIFT, Mods::SHIFT),
-        (VK_LWIN, Mods::META),
-        (VK_RWIN, Mods::META),
-    ]
-    .into_iter()
-    .filter(|(key, _)| held(*key))
-    .fold(Mods::NONE, |mods, (_, m)| mods | m);
+    let mods = held_mods();
     let mode = sink.gate.mode();
     if !keys::may_show(mods, mode) {
         return;
