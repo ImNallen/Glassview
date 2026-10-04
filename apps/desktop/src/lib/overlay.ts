@@ -1,11 +1,13 @@
-import type { Button, HoldView, OverlayEvent, PillPosition, Point } from './native';
+import type { Button, HoldView, OverlayEvent, PillPosition, Point, ScrollDirection } from './native';
 import { pushStroke, type Pill } from './pill';
 
 export interface Ripple { id: number; button: Button; mods: string | null; x: number; y: number }
 export interface Hold extends HoldView { id: number; path: Point[] }
 export interface Trail { id: number; button: Button; path: Point[] }
-export interface OverlayView { ripples: Ripple[]; halo: Point | null; hold: Hold | null; trails: Trail[]; pill: Pill | null; nextId: number }
-export const initial: OverlayView = { ripples: [], halo: null, hold: null, trails: [], pill: null, nextId: 0 };
+export interface Scroll { x: number; y: number; direction: ScrollDirection }
+export interface OverlayView { ripples: Ripple[]; halo: Point | null; hold: Hold | null; trails: Trail[]; scroll: Scroll | null; pill: Pill | null; nextId: number }
+export const initial: OverlayView = { ripples: [], halo: null, hold: null, trails: [], scroll: null, pill: null, nextId: 0 };
+export const SCROLL_GLYPHS: Record<ScrollDirection, string> = { up: '↑', down: '↓', left: '←', right: '→' };
 export const MAX_RIPPLES = 24;
 const MAX_TRAILS = 8;
 export const MAX_PATH = 400;
@@ -21,6 +23,7 @@ export function reduce(view: OverlayView, event: OverlayEvent, now: number, fade
     }
     case 'halo': return { ...view, halo: event.at };
     case 'hold': return event.hold ? moveHold(view, event.hold) : endHold(view);
+    case 'scroll': return { ...view, scroll: { x: event.x, y: event.y, direction: event.direction } };
     case 'key': return { ...view, pill: pushStroke(view.pill, event.stroke, now, fadeMs) };
   }
 }

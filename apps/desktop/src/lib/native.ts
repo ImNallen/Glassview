@@ -20,11 +20,13 @@ export type Action = 'toggle' | 'enable' | 'disable' | 'open-settings' | 'close-
   | 'request-key-access' | 'relaunch' | 'dismiss-error' | 'quit';
 export type StrokeView = { kind: 'chord'; label: string } | { kind: 'text'; text: string };
 export interface Point { x: number; y: number }
+export type ScrollDirection = 'up' | 'down' | 'left' | 'right';
 export interface HoldView { button: Button; mods: string | null; x: number; y: number }
 export type OverlayEvent =
   | { kind: 'click'; button: Button; mods: string | null; x: number; y: number }
   | { kind: 'halo'; at: Point | null }
   | { kind: 'hold'; hold: HoldView | null }
+  | { kind: 'scroll'; x: number; y: number; direction: ScrollDirection }
   | { kind: 'key'; stroke: StrokeView };
 
 export const DEFAULT_PREFERENCES: Preferences = defaults as Preferences;

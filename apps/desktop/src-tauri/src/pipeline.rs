@@ -11,6 +11,7 @@ use std::{
 use tauri::Emitter;
 
 const TICK: Duration = Duration::from_millis(16);
+const MIN_SCROLL: f64 = 1.0;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -26,6 +27,35 @@ impl Button {
             2 => Some(Self::Middle),
             _ => None,
         }
+    }
+}
+
+/// Positive `dy` scrolls toward the top of the document and positive `dx` toward its
+/// right, whatever the OS's natural scrolling setting.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct ScrollDelta {
+    pub(crate) dx: f64,
+    pub(crate) dy: f64,
+}
+
+/// The way the view moves through the document.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum ScrollDirection {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+impl ScrollDirection {
+    fn of(ScrollDelta { dx, dy }: ScrollDelta) -> Option<Self> {
+        let direction = match (dy.abs() >= dx.abs(), dy > 0.0, dx > 0.0) {
+            (true, true, _) => Self::Up,
+            (true, false, _) => Self::Down,
+            (false, _, true) => Self::Right,
+            (false, _, false) => Self::Left,
+        };
+        (dx.abs().max(dy.abs()) >= MIN_SCROLL).then_some(direction)
     }
 }
 
@@ -45,6 +75,10 @@ pub(crate) enum InputEvent {
     Move {
         at: Point,
         buttons_down: bool,
+    },
+    Scroll {
+        at: Point,
+        delta: ScrollDelta,
     },
     Key {
         stroke: Stroke,
@@ -89,6 +123,11 @@ pub(crate) enum OverlayEvent {
     Hold {
         hold: Option<HoldView>,
     },
+    Scroll {
+        x: f64,
+        y: f64,
+        direction: ScrollDirection,
+    },
     Key {
         stroke: StrokeView,
     },
@@ -114,6 +153,8 @@ pub(crate) struct Pipeline {
     halo_overlay: Option<usize>,
     hold: Option<Hold>,
     pending_move: Option<Point>,
+    /// Deltas summed since the last tick, at the latest pointer position.
+    pending_scroll: Option<(Point, ScrollDelta)>,
     last_tick: Option<Instant>,
 }
 
@@ -126,6 +167,7 @@ impl Pipeline {
             halo_overlay: None,
             hold: None,
             pending_move: None,
+            pending_scroll: None,
             last_tick: None,
         }
     }
@@ -136,6 +178,7 @@ impl Pipeline {
                 self.config = config;
                 let mut emits = Vec::new();
                 if !config.enabled {
+                    self.pending_scroll = None;
                     emits.extend(self.end_hold());
                 }
                 if !(config.enabled && config.halo) {
@@ -147,6 +190,7 @@ impl Pipeline {
             Msg::Layout(layout) => {
                 self.layout = layout;
                 self.pending_move = None;
+                self.pending_scroll = None;
                 let mut emits = self.clear_halo();
                 if let Some(hold) = &mut self.hold {
                     emits.extend(follow(
@@ -196,12 +240,17 @@ impl Pipeline {
                 };
                 if self.config.halo || self.hold.is_some() {
                     self.pending_move = Some(at);
-                    match self.deadline() {
-                        Some(deadline) if now < deadline => {}
-                        _ => emits.extend(self.flush(now)),
-                    }
+                    emits.extend(self.tick(now));
                 }
                 emits
+            }
+            Msg::Input(InputEvent::Scroll { at, delta }) => {
+                let sum = self.pending_scroll.map_or(delta, |(_, sum)| ScrollDelta {
+                    dx: sum.dx + delta.dx,
+                    dy: sum.dy + delta.dy,
+                });
+                self.pending_scroll = Some((at, sum));
+                self.tick(now)
             }
             Msg::Input(InputEvent::Key { stroke, cursor }) => {
                 if self.layout.displays().is_empty() {
@@ -219,27 +268,47 @@ impl Pipeline {
     }
 
     pub(crate) fn deadline(&self) -> Option<Instant> {
-        self.pending_move
-            .and(self.last_tick)
-            .map(|last| last + TICK)
+        let pending = self.pending_move.is_some() || self.pending_scroll.is_some();
+        self.last_tick.filter(|_| pending).map(|last| last + TICK)
     }
 
-    /// One tick moves the halo and the held button together.
+    fn tick(&mut self, now: Instant) -> Vec<Emit> {
+        match self.deadline() {
+            Some(deadline) if now < deadline => vec![],
+            _ => self.flush(now),
+        }
+    }
+
     pub(crate) fn flush(&mut self, now: Instant) -> Vec<Emit> {
-        let Some(at) = self.pending_move.take() else {
+        if self.pending_move.is_none() && self.pending_scroll.is_none() {
             return vec![];
-        };
+        }
         self.last_tick = Some(now);
         let mut emits = Vec::new();
-        if self.config.halo {
+        if let Some(at) = self.pending_move.take() {
+            if self.config.halo {
+                let located = self.layout.locate(at);
+                emits.extend(follow(
+                    &mut self.halo_overlay,
+                    located.map(|(overlay, css)| (overlay, OverlayEvent::Halo { at: Some(css) })),
+                    OverlayEvent::Halo { at: None },
+                ));
+            }
+            emits.extend(self.place_hold(at));
+        }
+        if let Some((at, delta)) = self.pending_scroll.take() {
             let located = self.layout.locate(at);
-            emits.extend(follow(
-                &mut self.halo_overlay,
-                located.map(|(overlay, css)| (overlay, OverlayEvent::Halo { at: Some(css) })),
-                OverlayEvent::Halo { at: None },
+            emits.extend(ScrollDirection::of(delta).zip(located).map(
+                |(direction, (overlay, css))| Emit {
+                    overlay,
+                    event: OverlayEvent::Scroll {
+                        x: css.x,
+                        y: css.y,
+                        direction,
+                    },
+                },
             ));
         }
-        emits.extend(self.place_hold(at));
         emits
     }
 
@@ -723,6 +792,64 @@ mod tests {
     }
 
     #[test]
+    fn scrolling_shows_one_direction_per_tick() {
+        let start = Instant::now();
+        let mut pipeline = Pipeline::new(Os::Mac, HALO_OFF, two_displays());
+        let mut scroll = |dx, dy, ms| {
+            let delta = ScrollDelta { dx, dy };
+            let at = at(1500.0, 400.0);
+            pipeline.handle(
+                input(InputEvent::Scroll { at, delta }),
+                start + Duration::from_millis(ms),
+            )
+        };
+        let shown = |direction| Emit {
+            overlay: 1,
+            event: OverlayEvent::Scroll {
+                x: 250.0,
+                y: 200.0,
+                direction,
+            },
+        };
+        assert_eq!(scroll(0.0, 3.0, 0), [shown(ScrollDirection::Up)]);
+        for ms in 1..=10 {
+            assert_eq!(scroll(0.0, -0.5, ms), []);
+        }
+        assert_eq!(
+            scroll(0.0, 0.0, 16),
+            [shown(ScrollDirection::Down)],
+            "small deltas add up within a tick"
+        );
+        assert_eq!(scroll(4.0, -1.0, 40), [shown(ScrollDirection::Right)]);
+        assert_eq!(scroll(-4.0, 1.0, 60), [shown(ScrollDirection::Left)]);
+        assert_eq!(scroll(0.6, 0.0, 70), []);
+        assert_eq!(scroll(0.6, 0.0, 75), []);
+        assert_eq!(scroll(0.0, 0.0, 76), [shown(ScrollDirection::Right)]);
+        assert_eq!(scroll(0.0, 0.4, 100), [], "trackpad jitter");
+        assert_eq!(pipeline.deadline(), None);
+    }
+
+    #[test]
+    fn disabling_drops_a_scroll_waiting_for_its_tick() {
+        let start = Instant::now();
+        let mut pipeline = Pipeline::new(Os::Mac, HALO_OFF, two_displays());
+        let scroll = || {
+            input(InputEvent::Scroll {
+                at: at(10.0, 10.0),
+                delta: ScrollDelta { dx: 0.0, dy: 5.0 },
+            })
+        };
+        pipeline.handle(scroll(), start);
+        pipeline.handle(scroll(), start + Duration::from_millis(1));
+        let disabled = Config {
+            enabled: false,
+            halo: false,
+        };
+        pipeline.handle(Msg::Config(disabled), start);
+        assert_eq!(pipeline.flush(start + TICK), []);
+    }
+
+    #[test]
     fn other_mac_buttons_decode_by_number() {
         assert_eq!(Button::from_mac_number(2), Some(Button::Middle));
         assert_eq!(Button::from_mac_number(5), None);
@@ -770,6 +897,14 @@ mod tests {
         assert_eq!(
             json(held(0, Button::Left, None, 3.0, 4.0).event),
             serde_json::json!({"kind": "hold", "hold": {"button": "left", "mods": null, "x": 3.0, "y": 4.0}})
+        );
+        assert_eq!(
+            json(OverlayEvent::Scroll {
+                x: 1.0,
+                y: 2.0,
+                direction: ScrollDirection::Down
+            }),
+            serde_json::json!({"kind": "scroll", "x": 1.0, "y": 2.0, "direction": "down"})
         );
         assert_eq!(
             json(unheld(0).event),

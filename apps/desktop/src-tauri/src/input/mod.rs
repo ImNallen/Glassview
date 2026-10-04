@@ -6,7 +6,7 @@ mod windows;
 use crate::{
     keys::{KeyMode, Mods, Stroke},
     layout::Point,
-    pipeline::{Button, InputEvent, Msg, PipelineHandle},
+    pipeline::{Button, InputEvent, Msg, PipelineHandle, ScrollDelta},
     session::KeyAccess,
     Result,
 };
@@ -70,6 +70,10 @@ impl Sink {
     pub(crate) fn release(&self, button: Button, at: Point) {
         self.pipeline
             .send(Msg::Input(InputEvent::Release { button, at }));
+    }
+    pub(crate) fn scroll(&self, at: Point, delta: ScrollDelta) {
+        self.pipeline
+            .send(Msg::Input(InputEvent::Scroll { at, delta }));
     }
     pub(crate) fn moved(&self, at: Point, buttons_down: bool) {
         if !(self.gate.halo.load(Relaxed) || self.held.load(Relaxed) || buttons_down) {

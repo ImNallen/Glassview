@@ -3,7 +3,7 @@ use crate::{
     commands,
     keys::{self, Key, KeyPress, Mods, Named},
     layout::Point,
-    pipeline::Button,
+    pipeline::{Button, ScrollDelta},
     session::KeyAccess,
     state::report,
     Result,
@@ -119,7 +119,8 @@ fn install_mouse_monitor() -> Result<()> {
         | NSEventMask::MouseMoved
         | NSEventMask::LeftMouseDragged
         | NSEventMask::RightMouseDragged
-        | NSEventMask::OtherMouseDragged;
+        | NSEventMask::OtherMouseDragged
+        | NSEventMask::ScrollWheel;
     let handler = RcBlock::new(|event: NonNull<NSEvent>| {
         let _ = catch_unwind(AssertUnwindSafe(|| on_mouse(unsafe { event.as_ref() })));
     });
@@ -221,8 +222,36 @@ fn on_mouse(event: &NSEvent) {
         CGEventType::LeftMouseDragged
         | CGEventType::RightMouseDragged
         | CGEventType::OtherMouseDragged => sink.moved(at, true),
+        CGEventType::ScrollWheel => {
+            if let Some(delta) = scroll_delta(event) {
+                sink.scroll(at, delta);
+            }
+        }
         _ => {}
     }
+}
+
+/// None while the content coasts after the fingers lift, which is not the presenter's input.
+fn scroll_delta(event: &CGEvent) -> Option<ScrollDelta> {
+    let field = |field| CGEvent::integer_value_field(Some(event), field);
+    if field(CGEventField::ScrollWheelEventMomentumPhase) != 0 {
+        return None;
+    }
+    // Points for trackpads; a wheel may report only the line delta.
+    let axis = |points, lines| match field(points) {
+        0 => CGEvent::double_value_field(Some(event), lines),
+        points => points as f64,
+    };
+    Some(ScrollDelta {
+        dx: -axis(
+            CGEventField::ScrollWheelEventPointDeltaAxis2,
+            CGEventField::ScrollWheelEventFixedPtDeltaAxis2,
+        ),
+        dy: axis(
+            CGEventField::ScrollWheelEventPointDeltaAxis1,
+            CGEventField::ScrollWheelEventFixedPtDeltaAxis1,
+        ),
+    })
 }
 
 fn button(kind: CGEventType, event: &CGEvent) -> Option<Button> {

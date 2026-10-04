@@ -62,6 +62,12 @@ describe('overlay view', () => {
     expect(release(view)).toBe(view);
   });
 
+  it('moves one scroll indicator in place while scrolling continues', () => {
+    let view = reduce(initial, { kind: 'scroll', x: 10, y: 20, direction: 'down' }, 0, FADE);
+    view = reduce(view, { kind: 'scroll', x: 12, y: 24, direction: 'up' }, 16, FADE);
+    expect(view.scroll).toEqual({ x: 12, y: 24, direction: 'up' });
+  });
+
   it('writes a path as SVG points', () => {
     expect(pathPoints([{ x: 1, y: 2 }, { x: 3.5, y: 4 }])).toBe('1,2 3.5,4');
   });
