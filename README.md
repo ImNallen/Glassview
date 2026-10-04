@@ -5,8 +5,9 @@
 **Show your clicks and shortcuts on screen.**
 
 Glassview is a small click and keystroke visualizer for macOS and Windows. It draws a
-short ripple where you click and shows the shortcuts you press in a pill near the bottom
-of the screen, so people watching a screen recording or a live demo can follow along.
+short ripple where you click, traces your drags, and shows the shortcuts you press in a
+pill near the bottom of the screen, so people watching a screen recording or a live demo
+can follow along.
 
 It covers every display, including displays with different scaling, and it never takes
 focus or gets in the way of your clicks and typing. Everything runs on your machine.
@@ -15,7 +16,15 @@ There's no account, no server, and nothing is recorded or sent over the network.
 ## Features
 
 - **Click ripples:** a short, fading ripple at the pointer, in a different color for the
-  left, right, and middle buttons. Pick the colors and the size.
+  left, right, and middle buttons. Pick the colors and the size. The back and forward
+  buttons show **‹** and **›** in the middle button's color.
+- **Modifier clicks:** a ⌘-click or Ctrl+Shift-click shows the held modifiers next to
+  the ripple, written the same way as in the shortcut pill.
+- **Holds and drags:** hold a button and a ring stays at the pointer until you let go.
+  Drag, and a line traces the path, then fades after you release. A quick click shows
+  only the ripple.
+- **Scrolling:** an arrow next to the pointer shows which way the page scrolls while
+  you scroll.
 - **Pointer halo:** an optional soft glow that follows the pointer.
 - **Shortcut pill:** shortcuts appear as they're pressed, with modifiers combined
   (**⇧⌘P**, **Ctrl+Alt+Del**) and fast repeats merged (**⌘Z ×3**). The pill fades
@@ -68,6 +77,7 @@ Settings has:
 - **Keys:** shortcuts only, or all keys. Pill size, pill position (a corner or bottom
   center), and how long the pill stays after the last key.
 - **Clicks:** a ripple color for each mouse button, the ripple size, and the pointer halo.
+  Holds and drags use the same colors and size.
 
 Settings are saved between launches.
 
@@ -102,8 +112,7 @@ or blocks it, and listening needs Input Monitoring alone.
   administrator rights.
 - After you connect, disconnect, rearrange, or rescale a display, the overlays can take
   up to 2 seconds to catch up.
-- Dead keys (accent keys that combine with the next key) aren't shown, and neither are
-  the extra mouse buttons such as back and forward.
+- Dead keys (accent keys that combine with the next key) aren't shown.
 - The macOS build uses private APIs for transparency, so it can't be distributed through
   the Mac App Store.
 

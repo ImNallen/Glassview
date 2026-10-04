@@ -1,10 +1,10 @@
 <script lang="ts">
   import { Keyboard, MousePointerClick, Power, RotateCw, ShieldCheck, X } from '@lucide/svelte';
   import Logo from './Logo.svelte';
-  import { action, savePreferences, type Action, type Button, type KeyMode, type PillPosition, type PillSize, type Preferences, type Session } from './lib/native';
+  import { action, savePreferences, type Action, type KeyMode, type PillPosition, type PillSize, type Preferences, type Session } from './lib/native';
   let { session }: { session: Session } = $props();
   const mac = navigator.userAgent.includes('Mac');
-  const BUTTONS: readonly { id: Button; label: string }[] = [{ id: 'left', label: 'Left' }, { id: 'right', label: 'Right' }, { id: 'middle', label: 'Middle' }];
+  const BUTTONS: readonly { id: keyof Preferences['rippleColors']; label: string }[] = [{ id: 'left', label: 'Left' }, { id: 'right', label: 'Right' }, { id: 'middle', label: 'Middle' }];
   const MODES: readonly { id: KeyMode; label: string }[] = [{ id: 'shortcuts', label: 'Shortcuts only' }, { id: 'all', label: 'All keys' }];
   const POSITIONS: readonly { id: PillPosition; label: string }[] = [
     { id: 'top-left', label: 'Top left' }, { id: 'top-right', label: 'Top right' }, { id: 'bottom-left', label: 'Bottom left' },

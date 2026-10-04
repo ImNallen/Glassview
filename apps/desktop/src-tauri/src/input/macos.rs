@@ -3,7 +3,7 @@ use crate::{
     commands,
     keys::{self, Key, KeyPress, Mods, Named},
     layout::Point,
-    pipeline::Button,
+    pipeline::{Button, ScrollDelta},
     session::KeyAccess,
     state::report,
     Result,
@@ -31,7 +31,6 @@ use tauri_plugin_opener::OpenerExt;
 const INPUT_MONITORING_PANE: &str =
     "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent";
 const LISTEN_EVENT: u32 = 1;
-const MIDDLE_BUTTON: i64 = 2;
 
 #[link(name = "IOKit", kind = "framework")]
 extern "C" {
@@ -114,10 +113,14 @@ fn install_mouse_monitor() -> Result<()> {
     let mask = NSEventMask::LeftMouseDown
         | NSEventMask::RightMouseDown
         | NSEventMask::OtherMouseDown
+        | NSEventMask::LeftMouseUp
+        | NSEventMask::RightMouseUp
+        | NSEventMask::OtherMouseUp
         | NSEventMask::MouseMoved
         | NSEventMask::LeftMouseDragged
         | NSEventMask::RightMouseDragged
-        | NSEventMask::OtherMouseDragged;
+        | NSEventMask::OtherMouseDragged
+        | NSEventMask::ScrollWheel;
     let handler = RcBlock::new(|event: NonNull<NSEvent>| {
         let _ = catch_unwind(AssertUnwindSafe(|| on_mouse(unsafe { event.as_ref() })));
     });
@@ -199,19 +202,79 @@ fn on_mouse(event: &NSEvent) {
         return;
     };
     let event = &*event;
-    let button = match CGEvent::r#type(Some(event)) {
-        CGEventType::LeftMouseDown => Button::Left,
-        CGEventType::RightMouseDown => Button::Right,
-        CGEventType::OtherMouseDown
-            if CGEvent::integer_value_field(Some(event), CGEventField::MouseEventButtonNumber)
-                == MIDDLE_BUTTON =>
-        {
-            Button::Middle
+    let at = location(event);
+    match CGEvent::r#type(Some(event)) {
+        kind @ (CGEventType::LeftMouseDown
+        | CGEventType::RightMouseDown
+        | CGEventType::OtherMouseDown) => {
+            if let Some(button) = button(kind, event) {
+                sink.press(button, mods(CGEvent::flags(Some(event))), at);
+            }
         }
-        CGEventType::OtherMouseDown => return,
-        _ => return sink.moved(location(event)),
+        kind @ (CGEventType::LeftMouseUp
+        | CGEventType::RightMouseUp
+        | CGEventType::OtherMouseUp) => {
+            if let Some(button) = button(kind, event) {
+                sink.release(button, at);
+            }
+        }
+        CGEventType::MouseMoved => sink.moved(at, false),
+        CGEventType::LeftMouseDragged
+        | CGEventType::RightMouseDragged
+        | CGEventType::OtherMouseDragged => sink.moved(at, true),
+        CGEventType::ScrollWheel => {
+            if let Some(delta) = scroll_delta(event) {
+                sink.scroll(at, delta);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// None while the content coasts after the fingers lift, which is not the presenter's input.
+fn scroll_delta(event: &CGEvent) -> Option<ScrollDelta> {
+    let field = |field| CGEvent::integer_value_field(Some(event), field);
+    if field(CGEventField::ScrollWheelEventMomentumPhase) != 0 {
+        return None;
+    }
+    // Points for trackpads; a wheel may report only the line delta.
+    let axis = |points, lines| match field(points) {
+        0 => CGEvent::double_value_field(Some(event), lines),
+        points => points as f64,
     };
-    sink.click(button, location(event));
+    Some(ScrollDelta {
+        dx: -axis(
+            CGEventField::ScrollWheelEventPointDeltaAxis2,
+            CGEventField::ScrollWheelEventFixedPtDeltaAxis2,
+        ),
+        dy: axis(
+            CGEventField::ScrollWheelEventPointDeltaAxis1,
+            CGEventField::ScrollWheelEventFixedPtDeltaAxis1,
+        ),
+    })
+}
+
+fn button(kind: CGEventType, event: &CGEvent) -> Option<Button> {
+    match kind {
+        CGEventType::LeftMouseDown | CGEventType::LeftMouseUp => Some(Button::Left),
+        CGEventType::RightMouseDown | CGEventType::RightMouseUp => Some(Button::Right),
+        _ => Button::from_mac_number(CGEvent::integer_value_field(
+            Some(event),
+            CGEventField::MouseEventButtonNumber,
+        )),
+    }
+}
+
+fn mods(flags: CGEventFlags) -> Mods {
+    [
+        (CGEventFlags::MaskControl, Mods::CTRL),
+        (CGEventFlags::MaskAlternate, Mods::ALT),
+        (CGEventFlags::MaskShift, Mods::SHIFT),
+        (CGEventFlags::MaskCommand, Mods::META),
+    ]
+    .into_iter()
+    .filter(|(flag, _)| flags.contains(*flag))
+    .fold(Mods::NONE, |mods, (_, m)| mods | m)
 }
 
 unsafe extern "C-unwind" fn key_callback(
@@ -235,15 +298,7 @@ fn on_key(kind: CGEventType, event: &CGEvent) {
         return;
     };
     let flags = CGEvent::flags(Some(event));
-    let mods = [
-        (CGEventFlags::MaskControl, Mods::CTRL),
-        (CGEventFlags::MaskAlternate, Mods::ALT),
-        (CGEventFlags::MaskShift, Mods::SHIFT),
-        (CGEventFlags::MaskCommand, Mods::META),
-    ]
-    .into_iter()
-    .filter(|(flag, _)| flags.contains(*flag))
-    .fold(Mods::NONE, |mods, (_, m)| mods | m);
+    let mods = mods(flags);
     let mode = sink.gate.mode();
     if !keys::may_show(mods, mode) {
         return;

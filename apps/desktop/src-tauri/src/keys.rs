@@ -14,6 +14,30 @@ impl Mods {
     pub(crate) fn has_command(self) -> bool {
         self.0 & (Self::CTRL.0 | Self::ALT.0 | Self::META.0) != 0
     }
+    pub(crate) fn label(self, os: Os) -> Option<String> {
+        let names = match os {
+            Os::Mac => [
+                (Self::CTRL, "⌃"),
+                (Self::ALT, "⌥"),
+                (Self::SHIFT, "⇧"),
+                (Self::META, "⌘"),
+            ],
+            Os::Windows => [
+                (Self::META, "Win"),
+                (Self::CTRL, "Ctrl"),
+                (Self::ALT, "Alt"),
+                (Self::SHIFT, "Shift"),
+            ],
+        };
+        (self != Self::NONE).then(|| {
+            names
+                .into_iter()
+                .filter(|(m, _)| self.has(*m))
+                .map(|(_, name)| name)
+                .collect::<Vec<_>>()
+                .join(os.separator())
+        })
+    }
 }
 impl std::ops::BitOr for Mods {
     type Output = Self;
@@ -87,6 +111,12 @@ impl Os {
     } else {
         Self::Windows
     };
+    fn separator(self) -> &'static str {
+        match self {
+            Self::Mac => "",
+            Self::Windows => "+",
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -154,32 +184,12 @@ impl Stroke {
         }
     }
     fn label(&self, os: Os) -> String {
-        let key = key_name(self.key, os);
-        match os {
-            Os::Mac => [
-                (Mods::CTRL, "⌃"),
-                (Mods::ALT, "⌥"),
-                (Mods::SHIFT, "⇧"),
-                (Mods::META, "⌘"),
-            ]
+        self.mods
+            .label(os)
             .into_iter()
-            .filter(|(m, _)| self.mods.has(*m))
-            .map(|(_, glyph)| glyph)
-            .chain([key.as_str()])
-            .collect(),
-            Os::Windows => [
-                (Mods::META, "Win"),
-                (Mods::CTRL, "Ctrl"),
-                (Mods::ALT, "Alt"),
-                (Mods::SHIFT, "Shift"),
-            ]
-            .into_iter()
-            .filter(|(m, _)| self.mods.has(*m))
-            .map(|(_, name)| name)
-            .chain([key.as_str()])
+            .chain([key_name(self.key, os)])
             .collect::<Vec<_>>()
-            .join("+"),
-        }
+            .join(os.separator())
     }
 }
 
@@ -339,6 +349,23 @@ mod tests {
             win(M::NONE, Named(Escape), None, Some('\u{1b}')),
             chord("Esc")
         );
+    }
+
+    #[test]
+    fn modifiers_are_labelled_in_each_os_order() {
+        let all = M::META | M::SHIFT | M::ALT | M::CTRL;
+        assert_eq!(all.label(Os::Mac).as_deref(), Some("⌃⌥⇧⌘"));
+        assert_eq!(
+            all.label(Os::Windows).as_deref(),
+            Some("Win+Ctrl+Alt+Shift")
+        );
+        assert_eq!(M::SHIFT.label(Os::Mac).as_deref(), Some("⇧"));
+        assert_eq!(
+            (M::SHIFT | M::CTRL).label(Os::Windows).as_deref(),
+            Some("Ctrl+Shift")
+        );
+        assert_eq!(M::NONE.label(Os::Mac), None);
+        assert_eq!(M::NONE.label(Os::Windows), None);
     }
 
     #[test]
