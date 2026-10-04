@@ -1,4 +1,4 @@
-import type { Button, HoldView, OverlayEvent, PillPosition, Point, ScrollDirection } from './native';
+import type { Button, HoldView, OverlayEvent, PillPosition, Point, Preferences, ScrollDirection } from './native';
 import { pushStroke, type Pill } from './pill';
 
 export interface Ripple { id: number; button: Button; mods: string | null; x: number; y: number }
@@ -7,6 +7,11 @@ export interface Trail { id: number; button: Button; path: Point[] }
 export interface Scroll { x: number; y: number; direction: ScrollDirection }
 export interface OverlayView { ripples: Ripple[]; halo: Point | null; hold: Hold | null; trails: Trail[]; scroll: Scroll | null; pill: Pill | null; nextId: number }
 export const initial: OverlayView = { ripples: [], halo: null, hold: null, trails: [], scroll: null, pill: null, nextId: 0 };
+/** Back and forward borrow the middle color, like the "other" buttons they are on macOS. A new nested
+ * `rippleColors` field would fail to parse in every saved preferences file and reset the user's colors. */
+export const rippleColor = (colors: Preferences['rippleColors'], button: Button): string =>
+  button === 'back' || button === 'forward' ? colors.middle : colors[button];
+export const BUTTON_GLYPHS: Partial<Record<Button, string>> = { back: '‹', forward: '›' };
 export const SCROLL_GLYPHS: Record<ScrollDirection, string> = { up: '↑', down: '↓', left: '←', right: '→' };
 export const MAX_RIPPLES = 24;
 const MAX_TRAILS = 8;

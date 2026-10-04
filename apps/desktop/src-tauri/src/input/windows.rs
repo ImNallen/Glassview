@@ -21,6 +21,7 @@ use windows_sys::Win32::{
             LLKHF_EXTENDED, MSG, MSLLHOOKSTRUCT, WH_KEYBOARD_LL, WH_MOUSE_LL, WM_KEYDOWN,
             WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEHWHEEL,
             WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SYSKEYDOWN,
+            WM_XBUTTONDOWN, WM_XBUTTONUP,
         },
     },
 };
@@ -90,6 +91,16 @@ fn on_mouse(message: u32, event: &MSLLHOOKSTRUCT) {
         WM_LBUTTONUP => sink.release(Button::Left, at),
         WM_RBUTTONUP => sink.release(Button::Right, at),
         WM_MBUTTONUP => sink.release(Button::Middle, at),
+        WM_XBUTTONDOWN => {
+            if let Some(button) = Button::from_x_button(high_word(event)) {
+                sink.press(button, held_mods(), at);
+            }
+        }
+        WM_XBUTTONUP => {
+            if let Some(button) = Button::from_x_button(high_word(event)) {
+                sink.release(button, at);
+            }
+        }
         WM_MOUSEMOVE => sink.moved(at, sink.holding() && any_button_held()),
         WM_MOUSEWHEEL => sink.scroll(
             at,
@@ -109,9 +120,13 @@ fn on_mouse(message: u32, event: &MSLLHOOKSTRUCT) {
     }
 }
 
-/// The signed high word of `mouseData`: positive is away from the user or to the right.
+fn high_word(event: &MSLLHOOKSTRUCT) -> u16 {
+    (event.mouseData >> 16) as u16
+}
+
+/// Positive is away from the user or to the right.
 fn wheel(event: &MSLLHOOKSTRUCT) -> f64 {
-    f64::from((event.mouseData >> 16) as u16 as i16)
+    f64::from(high_word(event) as i16)
 }
 
 /// In a low-level hook the async state is the state before this event, which is

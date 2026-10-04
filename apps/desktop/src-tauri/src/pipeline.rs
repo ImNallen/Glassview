@@ -19,12 +19,24 @@ pub(crate) enum Button {
     Left,
     Right,
     Middle,
+    Back,
+    Forward,
 }
 impl Button {
     #[cfg(any(target_os = "macos", test))]
     pub(crate) fn from_mac_number(number: i64) -> Option<Self> {
         match number {
             2 => Some(Self::Middle),
+            3 => Some(Self::Back),
+            4 => Some(Self::Forward),
+            _ => None,
+        }
+    }
+    #[cfg(any(target_os = "windows", test))]
+    pub(crate) fn from_x_button(x: u16) -> Option<Self> {
+        match x {
+            1 => Some(Self::Back),
+            2 => Some(Self::Forward),
             _ => None,
         }
     }
@@ -850,9 +862,14 @@ mod tests {
     }
 
     #[test]
-    fn other_mac_buttons_decode_by_number() {
+    fn extra_buttons_decode_on_each_os() {
         assert_eq!(Button::from_mac_number(2), Some(Button::Middle));
+        assert_eq!(Button::from_mac_number(3), Some(Button::Back));
+        assert_eq!(Button::from_mac_number(4), Some(Button::Forward));
         assert_eq!(Button::from_mac_number(5), None);
+        assert_eq!(Button::from_x_button(1), Some(Button::Back));
+        assert_eq!(Button::from_x_button(2), Some(Button::Forward));
+        assert_eq!(Button::from_x_button(0), None);
     }
 
     #[test]
@@ -895,8 +912,8 @@ mod tests {
             serde_json::json!({"kind": "click", "button": "middle", "mods": "⌥", "x": 1.5, "y": 2.0})
         );
         assert_eq!(
-            json(held(0, Button::Left, None, 3.0, 4.0).event),
-            serde_json::json!({"kind": "hold", "hold": {"button": "left", "mods": null, "x": 3.0, "y": 4.0}})
+            json(held(0, Button::Forward, None, 3.0, 4.0).event),
+            serde_json::json!({"kind": "hold", "hold": {"button": "forward", "mods": null, "x": 3.0, "y": 4.0}})
         );
         assert_eq!(
             json(OverlayEvent::Scroll {

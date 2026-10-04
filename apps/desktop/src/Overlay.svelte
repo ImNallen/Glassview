@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { fade } from 'svelte/transition';
   import { onOverlay, type Session } from './lib/native';
-  import { dropRipple, dropTrail, expirePill, initial, pathPoints, pillAnchor, reduce, SCROLL_GLYPHS } from './lib/overlay';
+  import { BUTTON_GLYPHS, dropRipple, dropTrail, expirePill, initial, pathPoints, pillAnchor, reduce, rippleColor, SCROLL_GLYPHS } from './lib/overlay';
   import { chipLabel } from './lib/pill';
   let { session }: { session: Session } = $props();
   const FADE_OUT_MS = 200;
@@ -37,22 +37,22 @@
   {#if view.hold || view.trails.length}
     <svg class="trails">
       {#each view.trails as trail (trail.id)}
-        <polyline class="fading" points={pathPoints(trail.path)} style:--color={preferences.rippleColors[trail.button]} onanimationend={() => view = dropTrail(view, trail.id)}/>
+        <polyline class="fading" points={pathPoints(trail.path)} style:--color={rippleColor(preferences.rippleColors, trail.button)} onanimationend={() => view = dropTrail(view, trail.id)}/>
       {/each}
-      {#if view.hold}<polyline points={pathPoints(view.hold.path)} style:--color={preferences.rippleColors[view.hold.button]}/>{/if}
+      {#if view.hold}<polyline points={pathPoints(view.hold.path)} style:--color={rippleColor(preferences.rippleColors, view.hold.button)}/>{/if}
     </svg>
   {/if}
   {#each view.ripples as ripple (ripple.id)}
     {@const drop = () => view = dropRipple(view, ripple.id)}
-    <span class="ripple" style:left={`${ripple.x}px`} style:top={`${ripple.y}px`} style:--size={`${preferences.rippleSize}px`} style:--color={preferences.rippleColors[ripple.button]}
-      onanimationend={ripple.mods ? undefined : drop}></span>
+    <span class="ripple" style:left={`${ripple.x}px`} style:top={`${ripple.y}px`} style:--size={`${preferences.rippleSize}px`} style:--color={rippleColor(preferences.rippleColors, ripple.button)}
+      onanimationend={ripple.mods ? undefined : drop}>{BUTTON_GLYPHS[ripple.button]}</span>
     {#if ripple.mods}
       <span class="chip chord mods clicked" style:left={`${ripple.x}px`} style:top={`${ripple.y}px`} style:--size={`${preferences.rippleSize}px`} onanimationend={drop}>{ripple.mods}</span>
     {/if}
   {/each}
   {#if view.hold}
     {#key view.hold.id}
-      <span class="hold" style:transform={`translate(${view.hold.x}px, ${view.hold.y}px)`} style:--size={`${preferences.rippleSize}px`} style:--color={preferences.rippleColors[view.hold.button]}>
+      <span class="hold" style:transform={`translate(${view.hold.x}px, ${view.hold.y}px)`} style:--size={`${preferences.rippleSize}px`} style:--color={rippleColor(preferences.rippleColors, view.hold.button)}>
         {#if view.hold.mods}<span class="chip chord mods">{view.hold.mods}</span>{/if}
       </span>
     {/key}
@@ -77,7 +77,7 @@
 
 <style>
   .overlay { position: fixed; inset: 0; overflow: hidden; pointer-events: none; }
-  .ripple { position: absolute; width: var(--size); height: var(--size); margin: calc(var(--size) / -2) 0 0 calc(var(--size) / -2); border-radius: 50%; border: 3px solid var(--color); background: color-mix(in srgb, var(--color) 22%, transparent); animation: ripple 480ms cubic-bezier(.2, .7, .3, 1) forwards; }
+  .ripple { position: absolute; display: grid; place-items: center; color: color-mix(in srgb, var(--color) 70%, var(--gb-text)); font-size: calc(var(--size) * .5); font-weight: 700; line-height: 1; width: var(--size); height: var(--size); margin: calc(var(--size) / -2) 0 0 calc(var(--size) / -2); border-radius: 50%; border: 3px solid var(--color); background: color-mix(in srgb, var(--color) 22%, transparent); animation: ripple 480ms cubic-bezier(.2, .7, .3, 1) forwards; }
   @keyframes ripple { from { transform: scale(.25); opacity: 1; } 60% { opacity: .9; } to { transform: scale(1); opacity: 0; } }
   .trails { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
   .trails polyline { fill: none; stroke: var(--color); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; opacity: .75; }

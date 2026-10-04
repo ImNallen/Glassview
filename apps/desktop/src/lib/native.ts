@@ -3,12 +3,12 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import defaults from '../contract/preference-defaults.json';
 
-export type Button = 'left' | 'right' | 'middle';
+export type Button = 'left' | 'right' | 'middle' | 'back' | 'forward';
 export type KeyMode = 'shortcuts' | 'all';
 export type PillPosition = 'bottom-center' | 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right';
 export type PillSize = 'small' | 'medium' | 'large';
 export interface Preferences {
-  rippleColors: Record<Button, string>; rippleSize: number; halo: boolean;
+  rippleColors: Record<'left' | 'right' | 'middle', string>; rippleSize: number; halo: boolean;
   pillPosition: PillPosition; pillSize: PillSize; fadeMs: number; keys: KeyMode; onboarded: boolean;
 }
 export type KeyAccess = 'granted' | 'denied' | 'unknown';

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DRAG_SLOP, dropRipple, dropTrail, expirePill, initial, MAX_PATH, MAX_RIPPLES, pathPoints, pillAnchor, reduce, type OverlayView } from './overlay';
-import type { HoldView } from './native';
+import { DRAG_SLOP, dropRipple, dropTrail, expirePill, initial, MAX_PATH, MAX_RIPPLES, pathPoints, pillAnchor, reduce, rippleColor, type OverlayView } from './overlay';
+import type { Button, HoldView } from './native';
 
 const FADE = 1500;
 const hold = (view: OverlayView, x: number, y: number, mods: string | null = null) =>
@@ -66,6 +66,12 @@ describe('overlay view', () => {
     let view = reduce(initial, { kind: 'scroll', x: 10, y: 20, direction: 'down' }, 0, FADE);
     view = reduce(view, { kind: 'scroll', x: 12, y: 24, direction: 'up' }, 16, FADE);
     expect(view.scroll).toEqual({ x: 12, y: 24, direction: 'up' });
+  });
+
+  it('colors back and forward like the middle button', () => {
+    const colors = { left: '#111111', right: '#222222', middle: '#333333' };
+    const buttons: Button[] = ['left', 'right', 'middle', 'back', 'forward'];
+    expect(buttons.map(button => rippleColor(colors, button))).toEqual(['#111111', '#222222', '#333333', '#333333', '#333333']);
   });
 
   it('writes a path as SVG points', () => {
