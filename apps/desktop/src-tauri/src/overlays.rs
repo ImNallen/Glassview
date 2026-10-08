@@ -281,15 +281,14 @@ fn set_native_visible(window: &tauri::WebviewWindow, visible: bool) {
 }
 
 pub(crate) fn anchor_settings(app: &tauri::AppHandle, window: &tauri::WebviewWindow) -> Result<()> {
-    let anchor = tray::bounds(app)?;
-    let center = (
-        anchor.x + anchor.width / 2.0,
-        anchor.y + anchor.height / 2.0,
-    );
+    let anchor = tray::bounds(app).ok();
     let monitors = app.available_monitors()?;
-    let monitor = monitors
-        .iter()
-        .find(|monitor| {
+    let tray_monitor = anchor.and_then(|anchor| {
+        let center = (
+            anchor.x + anchor.width / 2.0,
+            anchor.y + anchor.height / 2.0,
+        );
+        monitors.into_iter().find(|monitor| {
             let k = if cfg!(target_os = "macos") {
                 monitor.scale_factor()
             } else {
@@ -304,7 +303,13 @@ pub(crate) fn anchor_settings(app: &tauri::AppHandle, window: &tauri::WebviewWin
                 && center.0 < x + f64::from(monitor.size().width) / k
                 && center.1 < y + f64::from(monitor.size().height) / k
         })
-        .ok_or("Tray display is unavailable")?;
+    });
+    let monitor = match tray_monitor {
+        Some(monitor) => monitor,
+        None => app
+            .primary_monitor()?
+            .ok_or("No display is available for settings")?,
+    };
     let area = monitor.work_area();
     let k = if cfg!(target_os = "macos") {
         monitor.scale_factor()
@@ -318,6 +323,16 @@ pub(crate) fn anchor_settings(app: &tauri::AppHandle, window: &tauri::WebviewWin
         width: f64::from(area.size.width) / k,
         height: f64::from(area.size.height) / k,
     };
+    let anchor = anchor.unwrap_or(Rect {
+        x: work_area.x + work_area.width - 24.0 * units_per_css,
+        y: if cfg!(target_os = "macos") {
+            work_area.y
+        } else {
+            work_area.y + work_area.height
+        },
+        width: 0.0,
+        height: 0.0,
+    });
     place(
         window,
         settings_bounds(
