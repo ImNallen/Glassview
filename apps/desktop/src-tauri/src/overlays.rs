@@ -8,7 +8,7 @@ use crate::{
 use std::time::Duration;
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
-const SETTINGS_CSS_SIZE: (f64, f64) = (380.0, 600.0);
+const SETTINGS_CSS_SIZE: (f64, f64) = (380.0, 620.0);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum Surface {
@@ -61,7 +61,8 @@ pub(crate) fn create_settings(app: &tauri::App) -> tauri::Result<()> {
     .inner_size(SETTINGS_CSS_SIZE.0, SETTINGS_CSS_SIZE.1)
     .transparent(true)
     .decorations(false)
-    .shadow(true)
+    .shadow(false)
+    .accept_first_mouse(true)
     .always_on_top(true)
     .skip_taskbar(true)
     .resizable(false)
