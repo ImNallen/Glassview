@@ -5,9 +5,9 @@
 **Show your clicks and shortcuts on screen.**
 
 Glassview is a small click and keystroke visualizer for macOS and Windows. It draws a
-short ripple where you click, traces your drags, and shows the shortcuts you press in a
-pill near the bottom of the screen, so people watching a screen recording or a live demo
-can follow along.
+short ripple where you click, a ring while a button is held, and the shortcuts you press
+in a pill near the bottom of the screen, so people watching a screen recording or a live
+demo can follow along.
 
 It covers every display, including displays with different scaling, and it never takes
 focus or gets in the way of your clicks and typing. Everything runs on your machine.
@@ -20,9 +20,8 @@ There's no account, no server, and nothing is recorded or sent over the network.
   buttons show **‹** and **›** in the middle button's color.
 - **Modifier clicks:** a ⌘-click or Ctrl+Shift-click shows the held modifiers next to
   the ripple, written the same way as in the shortcut pill.
-- **Holds and drags:** hold a button and a ring stays at the pointer until you let go.
-  Drag, and a line traces the path, then fades after you release. A quick click shows
-  only the ripple.
+- **Holds:** hold a button and a ring stays at the pointer until you let go. A quick
+  click shows only the ripple.
 - **Scrolling:** an arrow next to the pointer shows which way the page scrolls while
   you scroll.
 - **Pointer halo:** an optional soft glow that follows the pointer.
@@ -77,7 +76,7 @@ Settings has:
 - **Keys:** shortcuts only, or all keys. Pill size, pill position (a corner or bottom
   center), and how long the pill stays after the last key.
 - **Clicks:** a ripple color for each mouse button, the ripple size, and the pointer halo.
-  Holds and drags use the same colors and size.
+  Holds use the same colors and size.
 
 Settings are saved between launches.
 

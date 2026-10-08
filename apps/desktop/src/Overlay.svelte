@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { fade } from 'svelte/transition';
   import { onOverlay, type Session } from './lib/native';
-  import { BUTTON_GLYPHS, dropRipple, dropTrail, expirePill, initial, pathPoints, pillAnchor, reduce, rippleColor, SCROLL_GLYPHS } from './lib/overlay';
+  import { BUTTON_GLYPHS, dropRipple, expirePill, initial, pillAnchor, reduce, rippleColor, SCROLL_GLYPHS } from './lib/overlay';
   import { chipLabel } from './lib/pill';
   let { session }: { session: Session } = $props();
   const FADE_OUT_MS = 200;
@@ -34,14 +34,6 @@
 </script>
 
 <div class="overlay" aria-hidden="true">
-  {#if view.hold || view.trails.length}
-    <svg class="trails">
-      {#each view.trails as trail (trail.id)}
-        <polyline class="fading" points={pathPoints(trail.path)} style:--color={rippleColor(preferences.rippleColors, trail.button)} onanimationend={() => view = dropTrail(view, trail.id)}/>
-      {/each}
-      {#if view.hold}<polyline points={pathPoints(view.hold.path)} style:--color={rippleColor(preferences.rippleColors, view.hold.button)}/>{/if}
-    </svg>
-  {/if}
   {#each view.ripples as ripple (ripple.id)}
     {@const drop = () => view = dropRipple(view, ripple.id)}
     <span class="ripple" style:left={`${ripple.x}px`} style:top={`${ripple.y}px`} style:--size={`${preferences.rippleSize}px`} style:--color={rippleColor(preferences.rippleColors, ripple.button)}
@@ -79,10 +71,6 @@
   .overlay { position: fixed; inset: 0; overflow: hidden; pointer-events: none; }
   .ripple { position: absolute; display: grid; place-items: center; color: color-mix(in srgb, var(--color) 70%, var(--gb-text)); font-size: calc(var(--size) * .5); font-weight: 700; line-height: 1; width: var(--size); height: var(--size); margin: calc(var(--size) / -2) 0 0 calc(var(--size) / -2); border-radius: 50%; border: 3px solid var(--color); background: color-mix(in srgb, var(--color) 22%, transparent); animation: ripple 480ms cubic-bezier(.2, .7, .3, 1) forwards; }
   @keyframes ripple { from { transform: scale(.25); opacity: 1; } 60% { opacity: .9; } to { transform: scale(1); opacity: 0; } }
-  .trails { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-  .trails polyline { fill: none; stroke: var(--color); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; opacity: .75; }
-  .trails .fading { animation: trail-out 400ms ease-out forwards; }
-  @keyframes trail-out { to { opacity: 0; } }
   /* Delayed so a click released sooner never shows the ring. */
   .hold { position: absolute; left: 0; top: 0; width: calc(var(--size) * .6); height: calc(var(--size) * .6); margin: calc(var(--size) * -.3) 0 0 calc(var(--size) * -.3); border-radius: 50%; border: 3px solid var(--color); box-sizing: border-box; background: color-mix(in srgb, var(--color) 18%, transparent); transition: transform 16ms linear; animation: hold-in 160ms ease-out 200ms both; }
   @keyframes hold-in { from { opacity: 0; scale: .6; } }

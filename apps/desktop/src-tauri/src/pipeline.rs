@@ -131,7 +131,7 @@ pub(crate) enum OverlayEvent {
         at: Option<Point>,
     },
     /// A snapshot like `Halo`: `None` means nothing is held on this overlay, and the
-    /// first `Some` after it starts a new path.
+    /// first `Some` after it starts a new hold.
     Hold {
         hold: Option<HoldView>,
     },
@@ -341,7 +341,7 @@ impl Pipeline {
         follow(&mut hold.overlay, shown, OverlayEvent::Hold { hold: None })
     }
 
-    /// Ends the hold at its final point, so the drawn path reaches where the button came up.
+    /// Puts the ring on the release point, then clears it.
     fn release(&mut self, at: Point) -> Vec<Emit> {
         let mut emits = self.place_hold(at);
         emits.extend(self.end_hold());
@@ -639,7 +639,7 @@ mod tests {
         assert_eq!(
             pipeline.handle(release(Button::Left, 104.0, 50.0), now),
             [held(0, Button::Left, Some("⇧⌘"), 104.0, 50.0), unheld(0)],
-            "the path ends where the button came up"
+            "the hold ends where the button came up"
         );
         assert_eq!(pipeline.handle(release(Button::Left, 104.0, 50.0), now), []);
         let mut windows = Pipeline::new(Os::Windows, HALO_OFF, two_displays());
@@ -689,7 +689,7 @@ mod tests {
                 halo(0, Some(at(30.0, 10.0))),
                 held(0, Button::Left, None, 30.0, 10.0)
             ],
-            "the path never runs back to where the pointer was before the press"
+            "the hold never jumps back to where the pointer was before the press"
         );
     }
 
