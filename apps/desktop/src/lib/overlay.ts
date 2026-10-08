@@ -2,11 +2,10 @@ import type { Button, HoldView, OverlayEvent, PillPosition, Point, Preferences, 
 import { pushStroke, type Pill } from './pill';
 
 export interface Ripple { id: number; button: Button; mods: string | null; x: number; y: number }
-export interface Hold extends HoldView { id: number; path: Point[] }
-export interface Trail { id: number; button: Button; path: Point[] }
+export interface Hold extends HoldView { id: number }
 export interface Scroll { x: number; y: number; direction: ScrollDirection }
-export interface OverlayView { ripples: Ripple[]; halo: Point | null; hold: Hold | null; trails: Trail[]; scroll: Scroll | null; pill: Pill | null; nextId: number }
-export const initial: OverlayView = { ripples: [], halo: null, hold: null, trails: [], scroll: null, pill: null, nextId: 0 };
+export interface OverlayView { ripples: Ripple[]; halo: Point | null; hold: Hold | null; scroll: Scroll | null; pill: Pill | null; nextId: number }
+export const initial: OverlayView = { ripples: [], halo: null, hold: null, scroll: null, pill: null, nextId: 0 };
 /** Back and forward borrow the middle color, like the "other" buttons they are on macOS. A new nested
  * `rippleColors` field would fail to parse in every saved preferences file and reset the user's colors. */
 export const rippleColor = (colors: Preferences['rippleColors'], button: Button): string =>
@@ -14,11 +13,6 @@ export const rippleColor = (colors: Preferences['rippleColors'], button: Button)
 export const BUTTON_GLYPHS: Partial<Record<Button, string>> = { back: '‹', forward: '›' };
 export const SCROLL_GLYPHS: Record<ScrollDirection, string> = { up: '↑', down: '↓', left: '←', right: '→' };
 export const MAX_RIPPLES = 24;
-const MAX_TRAILS = 8;
-export const MAX_PATH = 400;
-/** CSS px the pointer may wander during a click before it counts as a drag. */
-export const DRAG_SLOP = 4;
-const MIN_SEGMENT = 1;
 
 export function reduce(view: OverlayView, event: OverlayEvent, now: number, fadeMs: number): OverlayView {
   switch (event.kind) {
@@ -33,24 +27,12 @@ export function reduce(view: OverlayView, event: OverlayEvent, now: number, fade
   }
 }
 function moveHold(view: OverlayView, next: HoldView): OverlayView {
-  const point = { x: next.x, y: next.y };
-  if (!view.hold) return { ...view, hold: { ...next, id: view.nextId, path: [point] }, nextId: view.nextId + 1 };
-  const { path } = view.hold;
-  const last = path[path.length - 1];
-  const moved = Math.hypot(point.x - last.x, point.y - last.y) >= (path.length === 1 ? DRAG_SLOP : MIN_SEGMENT);
-  const grown = moved ? [...path, point] : path;
-  return { ...view, hold: { ...view.hold, ...point, path: grown.length > MAX_PATH ? [grown[0], ...grown.slice(1 - MAX_PATH)] : grown } };
+  if (!view.hold) return { ...view, hold: { ...next, id: view.nextId }, nextId: view.nextId + 1 };
+  return { ...view, hold: { ...view.hold, ...next } };
 }
 function endHold(view: OverlayView): OverlayView {
-  const { hold } = view;
-  if (!hold) return view;
-  if (hold.path.length === 1) return { ...view, hold: null };
-  return { ...view, hold: null, trails: [...view.trails, { id: hold.id, button: hold.button, path: hold.path }].slice(-MAX_TRAILS) };
+  return view.hold ? { ...view, hold: null } : view;
 }
-export function dropTrail(view: OverlayView, id: number): OverlayView {
-  return { ...view, trails: view.trails.filter(trail => trail.id !== id) };
-}
-export const pathPoints = (path: Point[]): string => path.map(({ x, y }) => `${x},${y}`).join(' ');
 export function dropRipple(view: OverlayView, id: number): OverlayView {
   return { ...view, ripples: view.ripples.filter(ripple => ripple.id !== id) };
 }
