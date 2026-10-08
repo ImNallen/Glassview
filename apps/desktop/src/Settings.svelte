@@ -1,5 +1,7 @@
 <script lang="ts">
   import { Keyboard, MousePointerClick, Power, RotateCw, ShieldCheck, SlidersHorizontal, X } from '@lucide/svelte';
+  import { isTauri } from '@tauri-apps/api/core';
+  import GitHubIcon from './GitHubIcon.svelte';
   import Logo from './Logo.svelte';
   import { action, savePreferences, type Action, type KeyMode, type PillPosition, type PillSize, type Preferences, type Session } from './lib/native';
   let { session }: { session: Session } = $props();
@@ -37,6 +39,11 @@
   let message = $derived(problem || session.error);
   const report = (error: unknown) => problem = String(error);
   const run = (name: Action) => action(name).catch(report);
+  function openGitHub(event: MouseEvent) {
+    if (!isTauri()) return;
+    event.preventDefault();
+    run('open-github');
+  }
   function update(patch: Partial<Preferences>) {
     problem = '';
     savePreferences({ ...session.preferences, ...patch }).catch(report);
@@ -56,7 +63,10 @@
   <section class="settings" aria-label="Glassview settings">
     <header>
       <span class="brand"><Logo size={18}/>Glassview<span class="version">v{__APP_VERSION__}</span></span>
-      <button class="icon-link" title="Close" aria-label="Close settings" onclick={() => run('close-settings')}><X size={15}/></button>
+      <div class="header-actions">
+        <a class="icon-link" href="https://github.com/ImNallen/Glassview" target="_blank" rel="noreferrer" title="Glassview on GitHub" aria-label="Glassview on GitHub" onclick={openGitHub}><GitHubIcon/></a>
+        <button class="icon-link" title="Close" aria-label="Close settings" onclick={() => run('close-settings')}><X size={15}/></button>
+      </div>
     </header>
 
     <div class="tabs" role="tablist" aria-label="Settings sections">
@@ -168,12 +178,14 @@
   @media (prefers-color-scheme: dark) { .settings { --raised: #3d4048; } }
 
   header { display: flex; align-items: center; justify-content: space-between; padding: 14px 12px 0 16px; }
+  .header-actions { display: flex; align-items: center; gap: 2px; }
   .brand { display: flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 600; letter-spacing: -.2px; color: var(--gb-strong-text); }
   .version { margin-left: 1px; padding: 2px 6px; border-radius: 999px; background: color-mix(in srgb, var(--gb-text) 7%, transparent); font-size: 10px; font-weight: 500; letter-spacing: 0; color: var(--gb-muted); font-variant-numeric: tabular-nums; }
 
   .panel { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 14px 12px; scrollbar-width: thin; }
   .icon-link { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 7px; color: var(--gb-muted); }
   .icon-link:hover { background: var(--gb-hover); color: var(--gb-strong-text); }
+  .icon-link:focus-visible { outline: 2px solid var(--gb-focus-ring); outline-offset: 2px; }
   .group + .group, .card + .group, .list + .group, .note + .group { margin-top: 20px; }
   h2 { display: flex; align-items: center; gap: 5px; margin: 0 0 8px 2px; font-size: 10px; font-weight: 600; letter-spacing: .8px; text-transform: uppercase; color: var(--gb-muted); }
   .note { margin: 8px 2px 10px; font-size: 11px; line-height: 1.4; color: var(--gb-muted); }

@@ -20,6 +20,7 @@ afterEach(async () => {
   await close();
   vi.resetAllMocks();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 async function open(patch: Partial<Session> = {}) {
@@ -44,6 +45,27 @@ function input(label: string, value: string) {
   flushSync();
   return element;
 }
+
+it('links to the repository beside Close and opens it through the native action only in Tauri', async () => {
+  await open();
+  const link = document.querySelector<HTMLAnchorElement>('a[aria-label="Glassview on GitHub"]');
+  if (!link) throw new Error('Missing GitHub link');
+  expect(link.href).toBe('https://github.com/ImNallen/Glassview');
+  expect(link.target).toBe('_blank');
+  expect(link.rel).toBe('noreferrer');
+  expect(link.nextElementSibling).toBe(button('Close settings'));
+  vi.stubGlobal('isTauri', false);
+  const browserClick = new MouseEvent('click', { bubbles: true, cancelable: true });
+  link.dispatchEvent(browserClick);
+  expect(browserClick.defaultPrevented).toBe(false);
+  expect(action).not.toHaveBeenCalled();
+  vi.stubGlobal('isTauri', true);
+  const nativeClick = new MouseEvent('click', { bubbles: true, cancelable: true });
+  link.dispatchEvent(nativeClick);
+  expect(nativeClick.defaultPrevented).toBe(true);
+  expect(action).toHaveBeenCalledExactlyOnceWith('open-github');
+  expect(savePreferences).not.toHaveBeenCalled();
+});
 
 it('starts on General and navigates tabs with wrapping focus and reset scrolling', async () => {
   await open();

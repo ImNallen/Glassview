@@ -9,6 +9,7 @@ pub(crate) enum Action {
     Disable,
     OpenSettings,
     CloseSettings,
+    OpenGithub,
     RequestKeyAccess,
     Relaunch,
     DismissError,
@@ -69,7 +70,7 @@ impl Session {
                 return first_close;
             }
             Action::DismissError => self.error = None,
-            Action::RequestKeyAccess | Action::Relaunch | Action::Quit => {}
+            Action::OpenGithub | Action::RequestKeyAccess | Action::Relaunch | Action::Quit => {}
         }
         false
     }
@@ -133,6 +134,7 @@ mod tests {
         let parse = |name: &str| serde_json::from_value::<Action>(name.into()).unwrap();
         assert_eq!(parse("request-key-access"), Action::RequestKeyAccess);
         assert_eq!(parse("open-settings"), Action::OpenSettings);
+        assert_eq!(parse("open-github"), Action::OpenGithub);
         assert!(serde_json::from_value::<Action>("show".into()).is_err());
         assert_eq!(serde_json::to_value(KeyAccess::Unknown).unwrap(), "unknown");
         let json = serde_json::to_value(session()).unwrap();

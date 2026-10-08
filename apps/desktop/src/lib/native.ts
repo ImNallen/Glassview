@@ -16,7 +16,7 @@ export interface Session {
   enabled: boolean; preferences: Preferences; keyAccess: KeyAccess; grantedWhileRunning: boolean; settingsOpen: boolean;
   shortcut: string; shortcutUnavailable: boolean; error: string | null;
 }
-export type Action = 'toggle' | 'enable' | 'disable' | 'open-settings' | 'close-settings'
+export type Action = 'toggle' | 'enable' | 'disable' | 'open-settings' | 'close-settings' | 'open-github'
   | 'request-key-access' | 'relaunch' | 'dismiss-error' | 'quit';
 export type StrokeView = { kind: 'chord'; label: string } | { kind: 'text'; text: string };
 export interface Point { x: number; y: number }

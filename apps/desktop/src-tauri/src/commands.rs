@@ -11,6 +11,7 @@ use crate::{
 use std::sync::Arc;
 use tauri::Manager;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
+use tauri_plugin_opener::OpenerExt;
 
 pub(crate) const REPOSITORY_URL: &str = "https://github.com/ImNallen/Glassview";
 pub(crate) const TOGGLE_SHORTCUT: &str = "CommandOrControl+Alt+Shift+K";
@@ -41,6 +42,10 @@ pub(crate) fn set_preferences(app: tauri::AppHandle, preferences: serde_json::Va
 
 pub(crate) fn perform(app: &tauri::AppHandle, action: Action) -> Result<()> {
     match action {
+        Action::OpenGithub => {
+            app.opener().open_url(REPOSITORY_URL, None::<&str>)?;
+            return Ok(());
+        }
         Action::RequestKeyAccess => return input::request_key_access(app),
         Action::Relaunch => app.restart(),
         Action::Quit => {
