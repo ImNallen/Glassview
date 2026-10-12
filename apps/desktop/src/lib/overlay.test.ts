@@ -1,11 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { dropRipple, expirePill, initial, MAX_RIPPLES, pillAnchor, reduce, rippleColor, type OverlayView } from './overlay';
-import type { Button, HoldView } from './native';
+import type { Button } from './native';
 
 const FADE = 1500;
-const hold = (view: OverlayView, x: number, y: number, mods: string | null = null) =>
-  reduce(view, { kind: 'hold', hold: { button: 'left', mods, x, y } satisfies HoldView }, 0, FADE);
-const release = (view: OverlayView) => reduce(view, { kind: 'hold', hold: null }, 0, FADE);
 
 describe('overlay view', () => {
   it('adds a ripple per click with increasing ids and drops it when its animation ends', () => {
@@ -26,18 +23,6 @@ describe('overlay view', () => {
     const shown = reduce(initial, { kind: 'halo', at: { x: 10, y: 20 } }, 0, FADE);
     expect(shown.halo).toEqual({ x: 10, y: 20 });
     expect(reduce(shown, { kind: 'halo', at: null }, 0, FADE).halo).toBeNull();
-  });
-
-  it('follows a held button until release, then starts the next hold fresh', () => {
-    let view = hold(initial, 10, 10, '⌘');
-    expect(view.hold).toEqual({ id: 0, button: 'left', mods: '⌘', x: 10, y: 10 });
-    view = hold(view, 20.5, 10, '⌘');
-    expect(view.hold).toEqual({ id: 0, button: 'left', mods: '⌘', x: 20.5, y: 10 });
-    view = release(view);
-    expect(view.hold).toBeNull();
-    expect(release(view)).toBe(view);
-    view = hold(view, 5, 5);
-    expect(view.hold).toEqual({ id: 1, button: 'left', mods: null, x: 5, y: 5 });
   });
 
   it('moves one scroll indicator in place while scrolling continues', () => {

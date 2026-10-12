@@ -1,11 +1,10 @@
-import type { Button, HoldView, OverlayEvent, PillPosition, Point, Preferences, ScrollDirection } from './native';
+import type { Button, OverlayEvent, PillPosition, Point, Preferences, ScrollDirection } from './native';
 import { pushStroke, type Pill } from './pill';
 
 export interface Ripple { id: number; button: Button; mods: string | null; x: number; y: number }
-export interface Hold extends HoldView { id: number }
 export interface Scroll { x: number; y: number; direction: ScrollDirection }
-export interface OverlayView { ripples: Ripple[]; halo: Point | null; hold: Hold | null; scroll: Scroll | null; pill: Pill | null; nextId: number }
-export const initial: OverlayView = { ripples: [], halo: null, hold: null, scroll: null, pill: null, nextId: 0 };
+export interface OverlayView { ripples: Ripple[]; halo: Point | null; scroll: Scroll | null; pill: Pill | null; nextId: number }
+export const initial: OverlayView = { ripples: [], halo: null, scroll: null, pill: null, nextId: 0 };
 /** Back and forward borrow the middle color, like the "other" buttons they are on macOS. A new nested
  * `rippleColors` field would fail to parse in every saved preferences file and reset the user's colors. */
 export const rippleColor = (colors: Preferences['rippleColors'], button: Button): string =>
@@ -21,17 +20,9 @@ export function reduce(view: OverlayView, event: OverlayEvent, now: number, fade
       return { ...view, ripples: [...view.ripples, ripple].slice(-MAX_RIPPLES), nextId: view.nextId + 1 };
     }
     case 'halo': return { ...view, halo: event.at };
-    case 'hold': return event.hold ? moveHold(view, event.hold) : endHold(view);
     case 'scroll': return { ...view, scroll: { x: event.x, y: event.y, direction: event.direction } };
     case 'key': return { ...view, pill: pushStroke(view.pill, event.stroke, now, fadeMs) };
   }
-}
-function moveHold(view: OverlayView, next: HoldView): OverlayView {
-  if (!view.hold) return { ...view, hold: { ...next, id: view.nextId }, nextId: view.nextId + 1 };
-  return { ...view, hold: { ...view.hold, ...next } };
-}
-function endHold(view: OverlayView): OverlayView {
-  return view.hold ? { ...view, hold: null } : view;
 }
 export function dropRipple(view: OverlayView, id: number): OverlayView {
   return { ...view, ripples: view.ripples.filter(ripple => ripple.id !== id) };

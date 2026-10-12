@@ -78,15 +78,8 @@ pub(crate) enum InputEvent {
         mods: Mods,
         at: Point,
     },
-    Release {
-        button: Button,
-        at: Point,
-    },
-    /// `buttons_down` is the OS's word on whether any button is held, so a release
-    /// the capture layer never saw still ends the hold.
     Move {
         at: Point,
-        buttons_down: bool,
     },
     Scroll {
         at: Point,
@@ -111,14 +104,6 @@ pub(crate) enum Msg {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
-pub(crate) struct HoldView {
-    pub(crate) button: Button,
-    pub(crate) mods: Option<String>,
-    pub(crate) x: f64,
-    pub(crate) y: f64,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub(crate) enum OverlayEvent {
     Click {
@@ -129,11 +114,6 @@ pub(crate) enum OverlayEvent {
     },
     Halo {
         at: Option<Point>,
-    },
-    /// A snapshot like `Halo`: `None` means nothing is held on this overlay, and the
-    /// first `Some` after it starts a new hold.
-    Hold {
-        hold: Option<HoldView>,
     },
     Scroll {
         x: f64,
@@ -151,19 +131,11 @@ pub(crate) struct Emit {
     pub(crate) event: OverlayEvent,
 }
 
-/// The one button being held. A second button pressed meanwhile only ripples.
-struct Hold {
-    button: Button,
-    mods: Mods,
-    overlay: Option<usize>,
-}
-
 pub(crate) struct Pipeline {
     os: Os,
     config: Config,
     layout: Layout,
     halo_overlay: Option<usize>,
-    hold: Option<Hold>,
     pending_move: Option<Point>,
     /// Deltas summed since the last tick, at the latest pointer position.
     pending_scroll: Option<(Point, ScrollDelta)>,
@@ -177,7 +149,6 @@ impl Pipeline {
             config,
             layout,
             halo_overlay: None,
-            hold: None,
             pending_move: None,
             pending_scroll: None,
             last_tick: None,
@@ -188,73 +159,45 @@ impl Pipeline {
         match msg {
             Msg::Config(config) => {
                 self.config = config;
-                let mut emits = Vec::new();
                 if !config.enabled {
                     self.pending_scroll = None;
-                    emits.extend(self.end_hold());
                 }
                 if !(config.enabled && config.halo) {
                     self.pending_move = None;
-                    emits.extend(self.clear_halo());
+                    return self.clear_halo();
                 }
-                emits
+                vec![]
             }
             Msg::Layout(layout) => {
                 self.layout = layout;
                 self.pending_move = None;
                 self.pending_scroll = None;
-                let mut emits = self.clear_halo();
-                if let Some(hold) = &mut self.hold {
-                    emits.extend(follow(
-                        &mut hold.overlay,
-                        None,
-                        OverlayEvent::Hold { hold: None },
-                    ));
-                }
-                emits
+                self.clear_halo()
             }
             Msg::Input(_) if !self.config.enabled => vec![],
             Msg::Input(InputEvent::Press { button, mods, at }) => {
                 // A move still waiting for its tick is older than the press.
                 self.pending_move = self.pending_move.map(|_| at);
-                let mut emits = match &self.hold {
-                    Some(hold) if hold.button == button => self.end_hold(),
-                    _ => vec![],
-                };
-                emits.extend(self.layout.locate(at).map(|(overlay, css)| Emit {
-                    overlay,
-                    event: OverlayEvent::Click {
-                        button,
-                        mods: mods.label(self.os),
-                        x: css.x,
-                        y: css.y,
-                    },
-                }));
-                if self.hold.is_none() {
-                    self.hold = Some(Hold {
-                        button,
-                        mods,
-                        overlay: None,
-                    });
-                    emits.extend(self.place_hold(at));
-                }
-                emits
+                self.layout
+                    .locate(at)
+                    .map(|(overlay, css)| Emit {
+                        overlay,
+                        event: OverlayEvent::Click {
+                            button,
+                            mods: mods.label(self.os),
+                            x: css.x,
+                            y: css.y,
+                        },
+                    })
+                    .into_iter()
+                    .collect()
             }
-            Msg::Input(InputEvent::Release { button, at }) => match &self.hold {
-                Some(hold) if hold.button == button => self.release(at),
-                _ => vec![],
-            },
-            Msg::Input(InputEvent::Move { at, buttons_down }) => {
-                let mut emits = if buttons_down {
-                    vec![]
-                } else {
-                    self.release(at)
-                };
-                if self.config.halo || self.hold.is_some() {
-                    self.pending_move = Some(at);
-                    emits.extend(self.tick(now));
+            Msg::Input(InputEvent::Move { at }) => {
+                if !self.config.halo {
+                    return vec![];
                 }
-                emits
+                self.pending_move = Some(at);
+                self.tick(now)
             }
             Msg::Input(InputEvent::Scroll { at, delta }) => {
                 let sum = self.pending_scroll.map_or(delta, |(_, sum)| ScrollDelta {
@@ -298,15 +241,12 @@ impl Pipeline {
         self.last_tick = Some(now);
         let mut emits = Vec::new();
         if let Some(at) = self.pending_move.take() {
-            if self.config.halo {
-                let located = self.layout.locate(at);
-                emits.extend(follow(
-                    &mut self.halo_overlay,
-                    located.map(|(overlay, css)| (overlay, OverlayEvent::Halo { at: Some(css) })),
-                    OverlayEvent::Halo { at: None },
-                ));
-            }
-            emits.extend(self.place_hold(at));
+            let located = self.layout.locate(at);
+            emits.extend(follow(
+                &mut self.halo_overlay,
+                located.map(|(overlay, css)| (overlay, OverlayEvent::Halo { at: Some(css) })),
+                OverlayEvent::Halo { at: None },
+            ));
         }
         if let Some((at, delta)) = self.pending_scroll.take() {
             let located = self.layout.locate(at);
@@ -322,36 +262,6 @@ impl Pipeline {
             ));
         }
         emits
-    }
-
-    fn place_hold(&mut self, at: Point) -> Vec<Emit> {
-        let Some(hold) = &mut self.hold else {
-            return vec![];
-        };
-        let view = |(overlay, css): (usize, Point)| {
-            let view = HoldView {
-                button: hold.button,
-                mods: hold.mods.label(self.os),
-                x: css.x,
-                y: css.y,
-            };
-            (overlay, OverlayEvent::Hold { hold: Some(view) })
-        };
-        let shown = self.layout.locate(at).map(view);
-        follow(&mut hold.overlay, shown, OverlayEvent::Hold { hold: None })
-    }
-
-    /// Puts the ring on the release point, then clears it.
-    fn release(&mut self, at: Point) -> Vec<Emit> {
-        let mut emits = self.place_hold(at);
-        emits.extend(self.end_hold());
-        emits
-    }
-
-    fn end_hold(&mut self) -> Vec<Emit> {
-        self.hold.take().map_or(vec![], |mut hold| {
-            follow(&mut hold.overlay, None, OverlayEvent::Hold { hold: None })
-        })
     }
 
     fn clear_halo(&mut self) -> Vec<Emit> {
@@ -466,27 +376,12 @@ mod tests {
         Msg::Input(event)
     }
     fn hover(x: f64, y: f64) -> Msg {
-        input(InputEvent::Move {
-            at: at(x, y),
-            buttons_down: false,
-        })
-    }
-    fn drag(x: f64, y: f64) -> Msg {
-        input(InputEvent::Move {
-            at: at(x, y),
-            buttons_down: true,
-        })
+        input(InputEvent::Move { at: at(x, y) })
     }
     fn press(button: Button, mods: Mods, x: f64, y: f64) -> Msg {
         input(InputEvent::Press {
             button,
             mods,
-            at: at(x, y),
-        })
-    }
-    fn release(button: Button, x: f64, y: f64) -> Msg {
-        input(InputEvent::Release {
-            button,
             at: at(x, y),
         })
     }
@@ -499,25 +394,6 @@ mod tests {
                 x,
                 y,
             },
-        }
-    }
-    fn held(overlay: usize, button: Button, mods: Option<&str>, x: f64, y: f64) -> Emit {
-        Emit {
-            overlay,
-            event: OverlayEvent::Hold {
-                hold: Some(HoldView {
-                    button,
-                    mods: mods.map(Into::into),
-                    x,
-                    y,
-                }),
-            },
-        }
-    }
-    fn unheld(overlay: usize) -> Emit {
-        Emit {
-            overlay,
-            event: OverlayEvent::Hold { hold: None },
         }
     }
     const HALO_OFF: Config = Config {
@@ -570,6 +446,15 @@ mod tests {
             [halo(0, None), halo(1, Some(at(5.0, 5.0)))]
         );
         assert_eq!(
+            pipeline.handle(hover(1010.0, 900.0), start + TICK * 2),
+            [halo(1, None)],
+            "below every display"
+        );
+        assert_eq!(
+            pipeline.handle(hover(1010.0, 10.0), start + TICK * 3),
+            [halo(1, Some(at(5.0, 5.0)))]
+        );
+        assert_eq!(
             pipeline.handle(Msg::Config(HALO_OFF), start),
             [halo(1, None)]
         );
@@ -609,10 +494,7 @@ mod tests {
                 press(Button::Right, Mods::NONE, 1500.0, 400.0),
                 Instant::now()
             ),
-            [
-                click(1, Button::Right, None, 250.0, 200.0),
-                held(1, Button::Right, None, 250.0, 200.0)
-            ]
+            [click(1, Button::Right, None, 250.0, 200.0)]
         );
         assert_eq!(
             pipeline.handle(
@@ -625,51 +507,18 @@ mod tests {
     }
 
     #[test]
-    fn a_press_ripples_with_its_modifiers_and_holds_until_its_release() {
+    fn a_press_ripples_with_its_modifiers() {
         let now = Instant::now();
         let mut pipeline = Pipeline::new(Os::Mac, HALO_OFF, two_displays());
         let shift_command = Mods::SHIFT | Mods::META;
         assert_eq!(
             pipeline.handle(press(Button::Left, shift_command, 100.0, 50.0), now),
-            [
-                click(0, Button::Left, Some("⇧⌘"), 100.0, 50.0),
-                held(0, Button::Left, Some("⇧⌘"), 100.0, 50.0)
-            ]
+            [click(0, Button::Left, Some("⇧⌘"), 100.0, 50.0)]
         );
-        assert_eq!(
-            pipeline.handle(release(Button::Left, 104.0, 50.0), now),
-            [held(0, Button::Left, Some("⇧⌘"), 104.0, 50.0), unheld(0)],
-            "the hold ends where the button came up"
-        );
-        assert_eq!(pipeline.handle(release(Button::Left, 104.0, 50.0), now), []);
         let mut windows = Pipeline::new(Os::Windows, HALO_OFF, two_displays());
         assert_eq!(
-            windows.handle(press(Button::Middle, Mods::CTRL, 10.0, 10.0), now)[0],
-            click(0, Button::Middle, Some("Ctrl"), 10.0, 10.0)
-        );
-    }
-
-    #[test]
-    fn a_drag_with_the_halo_off_moves_the_hold_once_per_tick() {
-        let start = Instant::now();
-        let mut pipeline = Pipeline::new(Os::Mac, HALO_OFF, two_displays());
-        pipeline.handle(press(Button::Left, Mods::NONE, 10.0, 10.0), start);
-        let mut emitted = Vec::new();
-        for ms in 1..=40u32 {
-            let now = start + Duration::from_millis(u64::from(ms));
-            emitted.extend(pipeline.handle(drag(10.0 + f64::from(ms), 10.0), now));
-        }
-        assert_eq!(
-            emitted,
-            [
-                held(0, Button::Left, None, 11.0, 10.0),
-                held(0, Button::Left, None, 27.0, 10.0),
-                held(0, Button::Left, None, 43.0, 10.0)
-            ]
-        );
-        assert_eq!(
-            pipeline.flush(start + Duration::from_millis(49)),
-            [held(0, Button::Left, None, 50.0, 10.0)]
+            windows.handle(press(Button::Middle, Mods::CTRL, 10.0, 10.0), now),
+            [click(0, Button::Middle, Some("Ctrl"), 10.0, 10.0)]
         );
     }
 
@@ -685,122 +534,9 @@ mod tests {
         );
         assert_eq!(
             pipeline.flush(start + TICK),
-            [
-                halo(0, Some(at(30.0, 10.0))),
-                held(0, Button::Left, None, 30.0, 10.0)
-            ],
-            "the hold never jumps back to where the pointer was before the press"
+            [halo(0, Some(at(30.0, 10.0)))],
+            "the halo never jumps back to where the pointer was before the press"
         );
-    }
-
-    #[test]
-    fn a_drag_with_the_halo_on_moves_both_in_one_tick() {
-        let now = Instant::now();
-        let mut pipeline = Pipeline::new(Os::Mac, ON, two_displays());
-        pipeline.handle(press(Button::Left, Mods::NONE, 10.0, 10.0), now);
-        assert_eq!(
-            pipeline.handle(drag(20.0, 10.0), now),
-            [
-                halo(0, Some(at(20.0, 10.0))),
-                held(0, Button::Left, None, 20.0, 10.0)
-            ]
-        );
-    }
-
-    #[test]
-    fn a_drag_across_displays_clears_the_overlay_it_leaves_first() {
-        let start = Instant::now();
-        let mut pipeline = Pipeline::new(Os::Mac, HALO_OFF, two_displays());
-        pipeline.handle(press(Button::Left, Mods::NONE, 990.0, 10.0), start);
-        let mut tick = 0;
-        let mut drag_to = |x, y| {
-            tick += 1;
-            pipeline.handle(drag(x, y), start + TICK * tick)
-        };
-        assert_eq!(
-            drag_to(1010.0, 10.0),
-            [unheld(0), held(1, Button::Left, None, 5.0, 5.0)]
-        );
-        assert_eq!(drag_to(1010.0, 900.0), [unheld(1)], "below every display");
-        assert_eq!(
-            drag_to(500.0, 10.0),
-            [held(0, Button::Left, None, 500.0, 10.0)]
-        );
-    }
-
-    #[test]
-    fn one_button_is_held_at_a_time() {
-        let now = Instant::now();
-        let mut pipeline = Pipeline::new(Os::Mac, HALO_OFF, two_displays());
-        pipeline.handle(press(Button::Left, Mods::NONE, 10.0, 10.0), now);
-        assert_eq!(
-            pipeline.handle(press(Button::Right, Mods::NONE, 10.0, 10.0), now),
-            [click(0, Button::Right, None, 10.0, 10.0)],
-            "a second button only ripples"
-        );
-        assert_eq!(pipeline.handle(release(Button::Right, 10.0, 10.0), now), []);
-        assert_eq!(
-            pipeline.handle(press(Button::Left, Mods::NONE, 20.0, 10.0), now),
-            [
-                unheld(0),
-                click(0, Button::Left, None, 20.0, 10.0),
-                held(0, Button::Left, None, 20.0, 10.0)
-            ],
-            "a press of the held button means its release was missed"
-        );
-    }
-
-    #[test]
-    fn motion_with_no_button_down_ends_a_hold_whose_release_was_missed() {
-        let start = Instant::now();
-        let mut pipeline = Pipeline::new(Os::Mac, HALO_OFF, two_displays());
-        pipeline.handle(press(Button::Left, Mods::NONE, 10.0, 10.0), start);
-        assert_eq!(
-            pipeline.handle(hover(30.0, 10.0), start),
-            [held(0, Button::Left, None, 30.0, 10.0), unheld(0)]
-        );
-        assert_eq!(pipeline.handle(hover(40.0, 10.0), start + TICK), []);
-        assert_eq!(pipeline.deadline(), None, "nothing left to move");
-
-        let mut halo_on = Pipeline::new(Os::Mac, ON, two_displays());
-        halo_on.handle(press(Button::Left, Mods::NONE, 10.0, 10.0), start);
-        assert_eq!(
-            halo_on.handle(hover(30.0, 10.0), start),
-            [
-                held(0, Button::Left, None, 30.0, 10.0),
-                unheld(0),
-                halo(0, Some(at(30.0, 10.0)))
-            ]
-        );
-    }
-
-    #[test]
-    fn a_layout_change_hides_the_hold_until_it_moves() {
-        let start = Instant::now();
-        let mut pipeline = Pipeline::new(Os::Mac, HALO_OFF, two_displays());
-        pipeline.handle(press(Button::Left, Mods::NONE, 10.0, 10.0), start);
-        assert_eq!(
-            pipeline.handle(Msg::Layout(two_displays()), start),
-            [unheld(0)]
-        );
-        assert_eq!(
-            pipeline.handle(drag(20.0, 10.0), start + TICK),
-            [held(0, Button::Left, None, 20.0, 10.0)]
-        );
-    }
-
-    #[test]
-    fn disabling_ends_the_hold_and_forgets_its_button() {
-        let now = Instant::now();
-        let mut pipeline = Pipeline::new(Os::Mac, HALO_OFF, two_displays());
-        pipeline.handle(press(Button::Left, Mods::NONE, 10.0, 10.0), now);
-        let disabled = Config {
-            enabled: false,
-            halo: false,
-        };
-        assert_eq!(pipeline.handle(Msg::Config(disabled), now), [unheld(0)]);
-        pipeline.handle(Msg::Config(HALO_OFF), now);
-        assert_eq!(pipeline.handle(release(Button::Left, 10.0, 10.0), now), []);
     }
 
     #[test]
@@ -912,20 +648,12 @@ mod tests {
             serde_json::json!({"kind": "click", "button": "middle", "mods": "⌥", "x": 1.5, "y": 2.0})
         );
         assert_eq!(
-            json(held(0, Button::Forward, None, 3.0, 4.0).event),
-            serde_json::json!({"kind": "hold", "hold": {"button": "forward", "mods": null, "x": 3.0, "y": 4.0}})
-        );
-        assert_eq!(
             json(OverlayEvent::Scroll {
                 x: 1.0,
                 y: 2.0,
                 direction: ScrollDirection::Down
             }),
             serde_json::json!({"kind": "scroll", "x": 1.0, "y": 2.0, "direction": "down"})
-        );
-        assert_eq!(
-            json(unheld(0).event),
-            serde_json::json!({"kind": "hold", "hold": null})
         );
         assert_eq!(
             json(OverlayEvent::Halo { at: None }),

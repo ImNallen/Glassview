@@ -20,12 +20,16 @@ afterEach(async () => {
   document.body.replaceChildren();
 });
 
-it('draws the hold ring at the pointer and no drag line', () => {
+it('draws a press as a ripple and its modifiers, with nothing left to follow the pointer', () => {
   overlay = mount(Overlay, { target: document.body, props: { session: structuredClone(DEFAULT_SESSION) } });
   flushSync();
-  emit({ kind: 'hold', hold: { button: 'left', mods: null, x: 40, y: 50 } });
-  emit({ kind: 'hold', hold: { button: 'left', mods: null, x: 80, y: 90 } });
+  emit({ kind: 'click', button: 'left', mods: '⌘', x: 40, y: 50 });
   flushSync();
-  expect(document.querySelector('.hold')?.getAttribute('style')).toContain('translate(80px, 90px)');
-  expect(document.querySelector('polyline')).toBeNull();
+  const drawn = [...document.querySelectorAll('.overlay > *')];
+  expect(drawn.map(element => element.className.replace(/\s*svelte-\S+/g, ''))).toEqual(['ripple', 'chip chord mods clicked']);
+  expect(drawn.map(element => element.getAttribute('style'))).toEqual([
+    expect.stringContaining('left: 40px; top: 50px'),
+    expect.stringContaining('left: 40px; top: 50px'),
+  ]);
+  expect(drawn[1].textContent).toBe('⌘');
 });

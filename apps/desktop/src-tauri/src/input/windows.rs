@@ -19,9 +19,8 @@ use windows_sys::Win32::{
             CallNextHookEx, DispatchMessageW, GetCursorPos, GetForegroundWindow, GetMessageW,
             GetWindowThreadProcessId, SetWindowsHookExW, HC_ACTION, KBDLLHOOKSTRUCT,
             LLKHF_EXTENDED, MSG, MSLLHOOKSTRUCT, WH_KEYBOARD_LL, WH_MOUSE_LL, WM_KEYDOWN,
-            WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEHWHEEL,
-            WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SYSKEYDOWN,
-            WM_XBUTTONDOWN, WM_XBUTTONUP,
+            WM_LBUTTONDOWN, WM_MBUTTONDOWN, WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL,
+            WM_RBUTTONDOWN, WM_SYSKEYDOWN, WM_XBUTTONDOWN,
         },
     },
 };
@@ -88,20 +87,12 @@ fn on_mouse(message: u32, event: &MSLLHOOKSTRUCT) {
         WM_LBUTTONDOWN => sink.press(Button::Left, held_mods(), at),
         WM_RBUTTONDOWN => sink.press(Button::Right, held_mods(), at),
         WM_MBUTTONDOWN => sink.press(Button::Middle, held_mods(), at),
-        WM_LBUTTONUP => sink.release(Button::Left, at),
-        WM_RBUTTONUP => sink.release(Button::Right, at),
-        WM_MBUTTONUP => sink.release(Button::Middle, at),
         WM_XBUTTONDOWN => {
             if let Some(button) = Button::from_x_button(high_word(event)) {
                 sink.press(button, held_mods(), at);
             }
         }
-        WM_XBUTTONUP => {
-            if let Some(button) = Button::from_x_button(high_word(event)) {
-                sink.release(button, at);
-            }
-        }
-        WM_MOUSEMOVE => sink.moved(at, sink.holding() && any_button_held()),
+        WM_MOUSEMOVE => sink.moved(at),
         WM_MOUSEWHEEL => sink.scroll(
             at,
             ScrollDelta {
@@ -147,12 +138,6 @@ fn held_mods() -> Mods {
     .into_iter()
     .filter(|(key, _)| held(*key))
     .fold(Mods::NONE, |mods, (_, m)| mods | m)
-}
-
-fn any_button_held() -> bool {
-    [VK_LBUTTON, VK_RBUTTON, VK_MBUTTON, VK_XBUTTON1, VK_XBUTTON2]
-        .into_iter()
-        .any(held)
 }
 
 fn on_key(event: &KBDLLHOOKSTRUCT) {
