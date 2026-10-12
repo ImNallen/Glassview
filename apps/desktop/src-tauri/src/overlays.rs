@@ -153,6 +153,10 @@ fn build_overlay(app: &tauri::AppHandle, index: usize) -> Result<tauri::WebviewW
     .focused(false)
     .visible(false)
     .build()?;
+    // tao on GTK unwraps the gdk window when applying a click-through region.
+    // That window does not exist until the overlay is realized, so the call
+    // aborts the process on Linux. macOS and Windows realize it in time.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     window.set_ignore_cursor_events(true)?;
     let native = window.clone();
     window.run_on_main_thread(move || configure_native(&native))?;
