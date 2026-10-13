@@ -33,3 +33,15 @@ it('draws a press as a ripple and its modifiers, with nothing left to follow the
   ]);
   expect(drawn[1].textContent).toBe('⌘');
 });
+
+it('sets the pill in the chosen font', () => {
+  const session = structuredClone(DEFAULT_SESSION);
+  session.preferences.pillFont = 'rounded';
+  overlay = mount(Overlay, { target: document.body, props: { session } });
+  flushSync();
+  emit({ kind: 'key', stroke: { kind: 'chord', label: '⌘K' } });
+  flushSync();
+  const style = document.querySelector('.pill')?.getAttribute('style');
+  expect(style).toContain("--font: 'Nunito Variable', ui-rounded, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif");
+  expect(style).toContain("--mono: 'Geist Mono Variable', ui-monospace");
+});

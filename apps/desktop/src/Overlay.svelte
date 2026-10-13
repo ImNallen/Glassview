@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { fade } from 'svelte/transition';
+  import { PILL_FONTS } from './lib/fonts';
   import { onOverlay, type Session } from './lib/native';
   import { BUTTON_GLYPHS, dropRipple, expirePill, initial, pillAnchor, reduce, rippleColor, SCROLL_GLYPHS } from './lib/overlay';
   import { chipLabel } from './lib/pill';
@@ -49,7 +50,8 @@
     <span class="halo" style:transform={`translate(${view.halo.x}px, ${view.halo.y}px)`} style:--color={preferences.rippleColors.left}></span>
   {/if}
   {#if view.pill}
-    <div class={`pill ${preferences.pillSize}`} class:fading style={pillAnchor(preferences.pillPosition)} style:--fade-out={`${FADE_OUT_MS}ms`}>
+    <div class={`pill ${preferences.pillSize}`} class:fading style={pillAnchor(preferences.pillPosition)} style:--fade-out={`${FADE_OUT_MS}ms`}
+      style:--font={PILL_FONTS[preferences.pillFont].family} style:--mono={PILL_FONTS[preferences.pillFont].mono}>
       {#each view.pill.chips as chip, index (index)}
         <span class={`chip ${chip.kind}`}>
           <span class="chip-label">{chipLabel(chip)}</span>
@@ -69,14 +71,14 @@
   @keyframes mods { from { opacity: 0; } 8%, 70% { opacity: 1; } to { opacity: 0; } }
   .scroll { position: absolute; left: 14px; top: -14px; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; color: var(--gb-text); font-size: 16px; font-weight: 600; background: color-mix(in srgb, var(--gb-surface) 94%, transparent); box-shadow: inset 0 0 0 1px var(--gb-border), 0 2px 4px var(--gb-shadow); transition: transform 16ms linear; }
   .halo { position: absolute; left: -22px; top: -22px; width: 44px; height: 44px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--color) 45%, transparent) 0%, color-mix(in srgb, var(--color) 18%, transparent) 55%, transparent 72%); transition: transform 16ms linear; }
-  .pill { position: absolute; display: flex; align-items: center; gap: .4em; max-width: calc(100vw - 48px); color: var(--gb-text); font-weight: 500; white-space: pre; transition: opacity var(--fade-out) ease-out; }
+  .pill { position: absolute; display: flex; align-items: center; gap: .4em; max-width: calc(100vw - 48px); color: var(--gb-text); font-family: var(--font); font-weight: 500; white-space: pre; transition: opacity var(--fade-out) ease-out; }
   .pill.fading { opacity: 0; }
-  .small { font-size: 15px; }
-  .medium { font-size: 21px; }
-  .large { font-size: 30px; }
-  .chip { display: inline-flex; align-items: center; gap: .4em; padding: .22em .48em; border-radius: .48em; background: color-mix(in srgb, var(--gb-surface) 94%, transparent); box-shadow: inset 0 0 0 1px var(--gb-border), 0 2px 4px var(--gb-shadow); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); line-height: 1.25; }
-  .chip.chord { background: linear-gradient(180deg, color-mix(in srgb, var(--gb-input-surface) 96%, transparent), color-mix(in srgb, var(--gb-surface) 96%, transparent)); font-weight: 600; letter-spacing: .02em; }
-  .chip.text { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--gb-secondary-text); }
+  .small { font-size: 20px; }
+  .medium { font-size: 28px; }
+  .large { font-size: 40px; }
+  .chip { display: inline-flex; align-items: center; gap: .4em; padding: .22em .48em; border-radius: .48em; background: color-mix(in srgb, var(--gb-surface) 72%, transparent); box-shadow: inset 0 0 0 1px var(--gb-border), 0 2px 4px var(--gb-shadow); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); line-height: 1.25; }
+  .chip.chord { background: linear-gradient(180deg, color-mix(in srgb, var(--gb-input-surface) 74%, transparent), color-mix(in srgb, var(--gb-surface) 74%, transparent)); font-weight: 600; letter-spacing: .02em; }
+  .chip.text { font-family: var(--mono); color: var(--gb-secondary-text); }
   .repeat { padding: .12em .36em; border-radius: .4em; background: var(--gb-hover); color: var(--gb-muted); font-size: .62em; font-weight: 500; line-height: 1.25; font-variant-numeric: tabular-nums; }
   @keyframes fade { from { opacity: 1; } to { opacity: 0; } }
   @keyframes appear { from { opacity: 0; } }
