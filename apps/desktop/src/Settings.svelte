@@ -3,7 +3,8 @@
   import { isTauri } from '@tauri-apps/api/core';
   import GitHubIcon from './GitHubIcon.svelte';
   import Logo from './Logo.svelte';
-  import { action, savePreferences, type Action, type KeyMode, type PillPosition, type PillSize, type Preferences, type Session } from './lib/native';
+  import { PILL_FONTS } from './lib/fonts';
+  import { action, savePreferences, type Action, type KeyMode, type PillFont, type PillPosition, type PillSize, type Preferences, type Session } from './lib/native';
   let { session }: { session: Session } = $props();
   type Tab = 'general' | 'clicks' | 'keys';
   const TABS: readonly { id: Tab; label: string; icon: typeof Keyboard }[] = [
@@ -33,6 +34,7 @@
     { id: 'bottom-center', label: 'Bottom center' }, { id: 'bottom-right', label: 'Bottom right' },
   ];
   const SIZES: readonly { id: PillSize; label: string }[] = [{ id: 'small', label: 'Small' }, { id: 'medium', label: 'Medium' }, { id: 'large', label: 'Large' }];
+  const FONTS = Object.keys(PILL_FONTS) as PillFont[];
   const COMMAND_KEYS = mac ? '⌘, ⌃, or ⌥' : 'Ctrl, Alt, or Win';
   let preferences = $derived(session.preferences);
   let problem = $state('');
@@ -156,6 +158,11 @@
             <div class="row"><span class="row-label" id="size-label">Pill size</span>
               <div class="segmented compact" role="group" aria-labelledby="size-label">
                 {#each SIZES as size}<button class:chosen={preferences.pillSize === size.id} aria-pressed={preferences.pillSize === size.id} onclick={() => update({ pillSize: size.id })}>{size.label}</button>{/each}
+              </div>
+            </div>
+            <div class="row"><span class="row-label" id="font-label">Font</span>
+              <div class="segmented compact" role="group" aria-labelledby="font-label">
+                {#each FONTS as id}<button class:chosen={preferences.pillFont === id} aria-pressed={preferences.pillFont === id} style:font-family={PILL_FONTS[id].family} onclick={() => update({ pillFont: id })}>{PILL_FONTS[id].label}</button>{/each}
               </div>
             </div>
           </div>

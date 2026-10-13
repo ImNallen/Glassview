@@ -73,6 +73,14 @@ pub(crate) enum PillSize {
     Large,
 }
 
+#[derive(Clone, Copy, Serialize, Deserialize, Debug, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum PillFont {
+    Geist,
+    System,
+    Rounded,
+}
+
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Preferences {
@@ -81,6 +89,7 @@ pub(crate) struct Preferences {
     pub(crate) halo: bool,
     pub(crate) pill_position: PillPosition,
     pub(crate) pill_size: PillSize,
+    pub(crate) pill_font: PillFont,
     pub(crate) fade_ms: FadeMs,
     pub(crate) keys: KeyMode,
     pub(crate) onboarded: bool,
@@ -224,7 +233,7 @@ fn write_atomically(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
 mod tests {
     use super::*;
     use serde_json::json;
-    const CUSTOM_JSON: &str = r##"{"rippleColors":{"left":"#123aBC","right":"#000000","middle":"#ffffff"},"rippleSize":24,"halo":true,"pillPosition":"top-right","pillSize":"large","fadeMs":5000,"keys":"all","onboarded":true}"##;
+    const CUSTOM_JSON: &str = r##"{"rippleColors":{"left":"#123aBC","right":"#000000","middle":"#ffffff"},"rippleSize":24,"halo":true,"pillPosition":"top-right","pillSize":"large","pillFont":"rounded","fadeMs":5000,"keys":"all","onboarded":true}"##;
     fn with(field: &str, value: Value) -> serde_json::Result<Preferences> {
         let mut fields = serde_json::to_value(Preferences::default()).unwrap();
         fields[field] = value;
@@ -292,6 +301,7 @@ mod tests {
             ("keys", json!("everything")),
             ("pillPosition", json!("center")),
             ("pillSize", json!("huge")),
+            ("pillFont", json!("comic-sans")),
             ("halo", json!("yes")),
             (
                 "rippleColors",
@@ -324,6 +334,18 @@ mod tests {
         let (preferences, warning) = load_from(&dir);
         assert_eq!(preferences, Preferences::default());
         assert!(warning.is_none());
+    }
+
+    #[test]
+    fn preferences_saved_before_pill_fonts_load_geist_without_a_warning() {
+        let dir = scratch_dir("before-fonts");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join(FILE_NAME), r#"{"halo":true,"pillSize":"large"}"#).unwrap();
+        let (preferences, warning) = load_from(&dir);
+        assert!(warning.is_none());
+        assert_eq!(preferences.pill_font, PillFont::Geist);
+        assert!(preferences.halo);
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

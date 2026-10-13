@@ -94,7 +94,7 @@ it('starts on General and navigates tabs with wrapping focus and reset scrolling
   expect(document.activeElement).toBe(button('Keys'));
 });
 
-it('saves key mode and pill sizes with the current session preferences', async () => {
+it('saves key mode, pill sizes, and pill fonts with the current session preferences', async () => {
   await open();
   select('Keys');
   expect(document.body.textContent).toContain('Typed text, including passwords, is never shown.');
@@ -105,6 +105,12 @@ it('saves key mode and pill sizes with the current session preferences', async (
     button(label).click();
     expect(savePreferences).toHaveBeenLastCalledWith({ ...DEFAULT_PREFERENCES, pillSize: size });
   }
+  expect(button('Geist').getAttribute('aria-pressed')).toBe('true');
+  for (const [label, font] of [['System', 'system'], ['Rounded', 'rounded'], ['Geist', 'geist']]) {
+    button(label).click();
+    expect(savePreferences).toHaveBeenLastCalledWith({ ...DEFAULT_PREFERENCES, pillFont: font });
+  }
+  expect(button('Rounded').style.fontFamily).toContain('Nunito Variable');
   const preferences: Session['preferences'] = { ...DEFAULT_PREFERENCES, keys: 'all', rippleSize: 80 };
   await open({ preferences });
   select('Keys');

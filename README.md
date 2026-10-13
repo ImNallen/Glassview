@@ -70,8 +70,9 @@ Settings says so and the icon still works.
 
 Settings has:
 
-- **Keys:** shortcuts only, or all keys. Pill size, pill position (a corner or bottom
-  center), and how long the pill stays after the last key.
+- **Keys:** shortcuts only, or all keys. Pill size, pill font (Geist, System, or
+  Rounded), pill position (a corner or bottom center), and how long the pill stays
+  after the last key.
 - **Clicks:** a ripple color for each mouse button, the ripple size, and the pointer halo.
 
 Settings are saved between launches.
