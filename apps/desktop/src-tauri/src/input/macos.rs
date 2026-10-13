@@ -113,9 +113,6 @@ fn install_mouse_monitor() -> Result<()> {
     let mask = NSEventMask::LeftMouseDown
         | NSEventMask::RightMouseDown
         | NSEventMask::OtherMouseDown
-        | NSEventMask::LeftMouseUp
-        | NSEventMask::RightMouseUp
-        | NSEventMask::OtherMouseUp
         | NSEventMask::MouseMoved
         | NSEventMask::LeftMouseDragged
         | NSEventMask::RightMouseDragged
@@ -211,17 +208,10 @@ fn on_mouse(event: &NSEvent) {
                 sink.press(button, mods(CGEvent::flags(Some(event))), at);
             }
         }
-        kind @ (CGEventType::LeftMouseUp
-        | CGEventType::RightMouseUp
-        | CGEventType::OtherMouseUp) => {
-            if let Some(button) = button(kind, event) {
-                sink.release(button, at);
-            }
-        }
-        CGEventType::MouseMoved => sink.moved(at, false),
-        CGEventType::LeftMouseDragged
+        CGEventType::MouseMoved
+        | CGEventType::LeftMouseDragged
         | CGEventType::RightMouseDragged
-        | CGEventType::OtherMouseDragged => sink.moved(at, true),
+        | CGEventType::OtherMouseDragged => sink.moved(at),
         CGEventType::ScrollWheel => {
             if let Some(delta) = scroll_delta(event) {
                 sink.scroll(at, delta);
@@ -256,8 +246,8 @@ fn scroll_delta(event: &CGEvent) -> Option<ScrollDelta> {
 
 fn button(kind: CGEventType, event: &CGEvent) -> Option<Button> {
     match kind {
-        CGEventType::LeftMouseDown | CGEventType::LeftMouseUp => Some(Button::Left),
-        CGEventType::RightMouseDown | CGEventType::RightMouseUp => Some(Button::Right),
+        CGEventType::LeftMouseDown => Some(Button::Left),
+        CGEventType::RightMouseDown => Some(Button::Right),
         _ => Button::from_mac_number(CGEvent::integer_value_field(
             Some(event),
             CGEventField::MouseEventButtonNumber,
