@@ -14,7 +14,7 @@ mod startup_error;
 mod state;
 mod tray;
 
-use commands::{action, get_session, perform, register_toggle, set_preferences};
+use commands::{action, get_session, perform, register_toggle, set_preferences, settings_ready};
 use error::Result;
 use input::{Gate, Sink};
 use overlays::Surface;
@@ -61,7 +61,8 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             get_session,
             action,
-            set_preferences
+            set_preferences,
+            settings_ready
         ])
         .setup(|app| {
             if let Err(error) = setup(app) {
@@ -117,7 +118,8 @@ fn setup(app: &mut tauri::App) -> std::result::Result<(), Box<dyn std::error::Er
     );
     app.manage(gate.clone());
     app.manage(pipeline.clone());
-    overlays::create_settings(app)?;
+    #[cfg(target_os = "macos")]
+    overlays::watch_settings_deactivation(handle.clone());
     tray::create_tray(app)?;
     problems.extend(
         overlays::sync(&handle, &layout)

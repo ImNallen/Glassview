@@ -1,14 +1,18 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import Overlay from './Overlay.svelte';
   import Settings from './Settings.svelte';
-  import { DEFAULT_SESSION, subscribe, type Session } from './lib/native';
+  import { DEFAULT_SESSION, settingsReady, subscribe, type Session } from './lib/native';
   import { parseSurface } from './lib/surface';
   const surface = parseSurface(location.search);
   let session = $state<Session>(structuredClone(DEFAULT_SESSION));
   onMount(() => {
     let disposed = false, stop = () => {};
-    subscribe(value => session = value).then(fn => { if (disposed) fn(); else stop = fn; }).catch(error => console.error(error));
+    subscribe(value => session = value).then(async fn => {
+      if (disposed) return fn();
+      stop = fn;
+      if (surface === 'settings') { await tick(); await settingsReady(); }
+    }).catch(error => console.error(error));
     return () => { disposed = true; stop(); };
   });
 </script>

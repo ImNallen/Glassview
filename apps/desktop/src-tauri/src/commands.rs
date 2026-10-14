@@ -20,9 +20,20 @@ pub(crate) const TOGGLE_SHORTCUT: &str = "CommandOrControl+Alt+Shift+K";
 pub(crate) fn get_session(app: tauri::AppHandle) -> Session {
     snapshot(&app)
 }
+/// Async so `perform` runs off the main thread. Creating a webview from a synchronous
+/// command deadlocks on Windows (`WebviewWindowBuilder::new` docs, wry#583).
 #[tauri::command]
-pub(crate) fn action(app: tauri::AppHandle, action: Action) -> Result<()> {
+pub(crate) async fn action(app: tauri::AppHandle, action: Action) -> Result<()> {
     perform(&app, action)
+}
+/// The settings page calls this once it has rendered the session, so a new window
+/// never shows default values.
+#[tauri::command]
+pub(crate) fn settings_ready(app: tauri::AppHandle, webview: tauri::WebviewWindow) -> Result<()> {
+    if Surface::parse(webview.label()) == Some(Surface::Settings) && snapshot(&app).settings_open {
+        present_settings(&app, &webview)?;
+    }
+    Ok(())
 }
 /// Parsed here rather than by Tauri, which would prefix the messages Settings shows.
 #[tauri::command]
@@ -54,12 +65,6 @@ pub(crate) fn perform(app: &tauri::AppHandle, action: Action) -> Result<()> {
         }
         _ => {}
     }
-    let settings = Surface::Settings
-        .window(app)
-        .ok_or("Settings window is unavailable")?;
-    if action == Action::OpenSettings {
-        overlays::anchor_settings(app, &settings)?;
-    }
     let save = app.state::<AppState>().0.lock().unwrap().transition(action);
     if save {
         app.state::<PreferenceSaves>()
@@ -67,14 +72,24 @@ pub(crate) fn perform(app: &tauri::AppHandle, action: Action) -> Result<()> {
     }
     apply(app)?;
     if action == Action::OpenSettings {
-        // A menu-bar app is never frontmost on its own, so Settings would open behind
-        // the active app and not become key, which keeps Escape from reaching it.
-        #[cfg(target_os = "macos")]
-        app.run_on_main_thread(activate_app)?;
-        settings.show()?;
-        settings.set_focus()?;
+        // A window `apply` just created stays hidden until its page calls `settings_ready`.
+        if let Some(settings) = Surface::Settings.window(app) {
+            if matches!(settings.is_visible(), Ok(true)) {
+                present_settings(app, &settings)?;
+            }
+        }
     }
     Ok(())
+}
+
+fn present_settings(app: &tauri::AppHandle, settings: &tauri::WebviewWindow) -> Result<()> {
+    overlays::anchor_settings(app, settings)?;
+    // A menu-bar app is never frontmost on its own, so Settings would open behind
+    // the active app and not become key, which keeps Escape from reaching it.
+    #[cfg(target_os = "macos")]
+    app.run_on_main_thread(activate_app)?;
+    settings.show()?;
+    Ok(settings.set_focus()?)
 }
 
 /// `activate` needs macOS 14; this supports 12.
@@ -97,10 +112,11 @@ pub(crate) fn apply(app: &tauri::AppHandle) -> Result<()> {
         enabled: session.enabled,
         halo,
     }));
-    if !session.settings_open {
-        if let Some(settings) = Surface::Settings.window(app) {
-            settings.hide()?;
-        }
+    // Settings exists only while open; its webview process would otherwise stay resident.
+    match Surface::Settings.window(app) {
+        None if session.settings_open => overlays::create_settings(app)?,
+        Some(settings) if !session.settings_open => settings.destroy()?,
+        _ => {}
     }
     tray::sync_tray(app, &session)?;
     publish(app)
