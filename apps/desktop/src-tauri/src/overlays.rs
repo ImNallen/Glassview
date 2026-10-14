@@ -51,7 +51,7 @@ pub(crate) fn current_layout(app: &tauri::AppHandle) -> Result<Layout> {
     Ok(Layout::from_monitors(&monitors, InputSpace::CURRENT))
 }
 
-pub(crate) fn create_settings(app: &tauri::App) -> tauri::Result<()> {
+pub(crate) fn create_settings(app: &tauri::AppHandle) -> tauri::Result<()> {
     let window = WebviewWindowBuilder::new(
         app,
         Surface::Settings.label(),
@@ -72,12 +72,14 @@ pub(crate) fn create_settings(app: &tauri::App) -> tauri::Result<()> {
     .build()?;
     #[cfg(target_os = "macos")]
     {
-        if let Ok(ptr) = window.ns_window() {
-            let native = unsafe { &*(ptr as *const objc2_app_kit::NSWindow) };
-            native.setMovable(false);
-            native.setMovableByWindowBackground(false);
-        }
-        watch_settings_deactivation(app.handle().clone());
+        let native = window.clone();
+        window.run_on_main_thread(move || {
+            if let Ok(ptr) = native.ns_window() {
+                let native = unsafe { &*(ptr as *const objc2_app_kit::NSWindow) };
+                native.setMovable(false);
+                native.setMovableByWindowBackground(false);
+            }
+        })?;
     }
     #[cfg(not(target_os = "macos"))]
     let _ = window;
@@ -94,7 +96,7 @@ fn close_settings(app: &tauri::AppHandle) {
 }
 
 #[cfg(target_os = "macos")]
-fn watch_settings_deactivation(app: tauri::AppHandle) {
+pub(crate) fn watch_settings_deactivation(app: tauri::AppHandle) {
     use objc2_app_kit::NSApplicationDidResignActiveNotification;
     use objc2_foundation::{NSNotification, NSNotificationCenter};
     let handler = block2::RcBlock::new(move |_: std::ptr::NonNull<NSNotification>| {

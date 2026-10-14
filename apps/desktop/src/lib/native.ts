@@ -43,6 +43,8 @@ export async function subscribe(fn: (session: Session) => void): Promise<Unliste
 }
 export const action = (action: Action): Promise<void> => invoke('action', { action });
 export const savePreferences = (preferences: Preferences): Promise<void> => invoke('set_preferences', { preferences });
+/** Rust keeps a new Settings window hidden until this, so the page never shows default values. */
+export const settingsReady = (): Promise<void> => invoke('settings_ready');
 /** Rust emits each overlay's events under that overlay's own window label; see the pipeline thread for why. */
 export const onOverlay = (fn: (event: OverlayEvent) => void): Promise<UnlistenFn> => {
   const window = getCurrentWebviewWindow();
