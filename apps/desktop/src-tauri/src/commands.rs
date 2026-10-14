@@ -28,16 +28,18 @@ pub(crate) fn action(app: tauri::AppHandle, action: Action) -> Result<()> {
 #[tauri::command]
 pub(crate) fn set_preferences(app: tauri::AppHandle, preferences: serde_json::Value) -> Result<()> {
     let preferences = Preferences::parse(preferences)?;
-    {
+    let session = {
         let state = app.state::<AppState>();
         let mut session = state.0.lock().unwrap();
         if session.preferences == preferences {
             return Ok(());
         }
         session.preferences = preferences.clone();
-    }
+        session.clone()
+    };
     app.state::<PreferenceSaves>().queue(preferences)?;
-    apply(&app)
+    gate_input(&app, &session);
+    publish(&app)
 }
 
 pub(crate) fn perform(app: &tauri::AppHandle, action: Action) -> Result<()> {
@@ -88,15 +90,12 @@ pub(crate) fn activate_app() {
     NSApplication::sharedApplication(mtm).activateIgnoringOtherApps(true);
 }
 
+/// Applies a session transition: `enabled`, `settings_open`, and `key_access` each own
+/// native windows or the tray. A preference change needs only `gate_input` and `publish`.
 pub(crate) fn apply(app: &tauri::AppHandle) -> Result<()> {
     let session = snapshot(app);
-    let Preferences { keys, halo, .. } = session.preferences;
     overlays::set_overlays_visible(app, session.enabled)?;
-    app.state::<Arc<Gate>>().set(session.enabled, keys, halo);
-    app.state::<PipelineHandle>().send(Msg::Config(Config {
-        enabled: session.enabled,
-        halo,
-    }));
+    gate_input(app, &session);
     if !session.settings_open {
         if let Some(settings) = Surface::Settings.window(app) {
             settings.hide()?;
@@ -104,6 +103,15 @@ pub(crate) fn apply(app: &tauri::AppHandle) -> Result<()> {
     }
     tray::sync_tray(app, &session)?;
     publish(app)
+}
+
+fn gate_input(app: &tauri::AppHandle, session: &Session) {
+    let Preferences { keys, halo, .. } = session.preferences;
+    app.state::<Arc<Gate>>().set(session.enabled, keys, halo);
+    app.state::<PipelineHandle>().send(Msg::Config(Config {
+        enabled: session.enabled,
+        halo,
+    }));
 }
 
 #[cfg(target_os = "macos")]

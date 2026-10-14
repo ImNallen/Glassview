@@ -18,6 +18,7 @@ async function close() {
 }
 afterEach(async () => {
   await close();
+  vi.useRealTimers();
   vi.resetAllMocks();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -25,7 +26,17 @@ afterEach(async () => {
 
 async function open(patch: Partial<Session> = {}) {
   await close();
+  vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] });
   settings = mount(Settings, { target: document.body, props: { session: { ...structuredClone(DEFAULT_SESSION), ...patch } } });
+  flushSync();
+}
+function frame() {
+  vi.advanceTimersToNextFrame();
+  flushSync();
+}
+async function saved() {
+  frame();
+  await new Promise(resolve => setTimeout(resolve));
   flushSync();
 }
 function button(name: string) {
@@ -100,14 +111,17 @@ it('saves key mode, pill sizes, and pill fonts with the current session preferen
   expect(document.body.textContent).toContain('Typed text, including passwords, is never shown.');
   expect(document.body.textContent).toContain('Apps running as administrator can’t be seen.');
   button('All keys').click();
+  await saved();
   expect(savePreferences).toHaveBeenLastCalledWith({ ...DEFAULT_PREFERENCES, keys: 'all' });
   for (const [label, size] of [['Small', 'small'], ['Medium', 'medium'], ['Large', 'large']]) {
     button(label).click();
+    await saved();
     expect(savePreferences).toHaveBeenLastCalledWith({ ...DEFAULT_PREFERENCES, pillSize: size });
   }
   expect(button('Geist').getAttribute('aria-pressed')).toBe('true');
   for (const [label, font] of [['System', 'system'], ['Rounded', 'rounded'], ['Geist', 'geist']]) {
     button(label).click();
+    await saved();
     expect(savePreferences).toHaveBeenLastCalledWith({ ...DEFAULT_PREFERENCES, pillFont: font });
   }
   expect(button('Rounded').style.fontFamily).toContain('Nunito Variable');
@@ -116,6 +130,7 @@ it('saves key mode, pill sizes, and pill fonts with the current session preferen
   select('Keys');
   expect(document.body.textContent).toContain('Everything you type appears on screen, including passwords.');
   button('Shortcuts only').click();
+  await saved();
   expect(savePreferences).toHaveBeenLastCalledWith({ ...preferences, keys: 'shortcuts' });
 });
 
@@ -123,13 +138,41 @@ it('saves every labeled position and the existing inactivity fade range on Gener
   await open();
   for (const [label, position] of [['Top left', 'top-left'], ['Top right', 'top-right'], ['Bottom left', 'bottom-left'], ['Bottom center', 'bottom-center'], ['Bottom right', 'bottom-right']]) {
     button(label).click();
+    await saved();
     expect(savePreferences).toHaveBeenLastCalledWith({ ...DEFAULT_PREFERENCES, pillPosition: position });
   }
   expect(button('Bottom center').getAttribute('aria-pressed')).toBe('true');
   const fade = input('Fade after', '2300');
   expect([fade.min, fade.max, fade.step]).toEqual(['500', '5000', '100']);
   expect(document.body.textContent).toContain('s without a key');
+  await saved();
   expect(savePreferences).toHaveBeenLastCalledWith({ ...DEFAULT_PREFERENCES, fadeMs: 2300 });
+});
+
+it('sends a drag once per frame with its latest value while the readout follows the pointer', async () => {
+  await open();
+  for (let ms = 600; ms <= 2500; ms += 100) input('Fade after', String(ms));
+  expect(document.body.textContent).toContain('2.5 s without a key');
+  expect(savePreferences).not.toHaveBeenCalled();
+  frame();
+  expect(savePreferences).toHaveBeenCalledExactlyOnceWith({ ...DEFAULT_PREFERENCES, fadeMs: 2500 });
+  for (let ms = 2600; ms <= 3500; ms += 100) input('Fade after', String(ms));
+  frame();
+  expect(savePreferences).toHaveBeenCalledTimes(2);
+  expect(savePreferences).toHaveBeenLastCalledWith({ ...DEFAULT_PREFERENCES, fadeMs: 3500 });
+  frame();
+  expect(savePreferences).toHaveBeenCalledTimes(2);
+});
+
+it('keeps an edit the session has not echoed when another field changes', async () => {
+  await open();
+  select('Clicks');
+  vi.mocked(savePreferences).mockReturnValueOnce(new Promise(() => {}));
+  input('Left button color', '#123456');
+  frame();
+  input('Ripple size', '100');
+  frame();
+  expect(savePreferences).toHaveBeenLastCalledWith({ ...DEFAULT_PREFERENCES, rippleColors: { ...DEFAULT_PREFERENCES.rippleColors, left: '#123456' }, rippleSize: 100 });
 });
 
 it('saves click colors independently, ripple size and pointer halo', async () => {
@@ -137,12 +180,15 @@ it('saves click colors independently, ripple size and pointer halo', async () =>
   select('Clicks');
   for (const [label, id] of [['Left', 'left'], ['Right', 'right'], ['Middle', 'middle']]) {
     input(`${label} button color`, '#123456');
+    await saved();
     expect(savePreferences).toHaveBeenLastCalledWith({ ...DEFAULT_PREFERENCES, rippleColors: { ...DEFAULT_PREFERENCES.rippleColors, [id]: '#123456' } });
   }
   const ripple = input('Ripple size', '100');
   expect([ripple.min, ripple.max, ripple.step]).toEqual(['24', '160', '4']);
+  await saved();
   expect(savePreferences).toHaveBeenLastCalledWith({ ...DEFAULT_PREFERENCES, rippleSize: 100 });
   document.querySelector<HTMLButtonElement>('[aria-labelledby="halo-label"]')!.click();
+  await saved();
   expect(savePreferences).toHaveBeenLastCalledWith({ ...DEFAULT_PREFERENCES, halo: true });
   expect(action).not.toHaveBeenCalled();
 });
@@ -205,9 +251,10 @@ it('keeps local action and save errors visible across tabs and dismisses them', 
   expect(document.querySelector('[role="alert"]')).toBeNull();
   vi.mocked(savePreferences).mockRejectedValueOnce(new Error('Save failed'));
   input('Ripple size', '100');
-  await Promise.resolve();
-  flushSync();
+  expect(document.body.textContent).toContain('100 px');
+  await saved();
   expect(document.querySelector('[role="alert"]')?.textContent).toContain('Save failed');
+  expect(document.body.textContent).toContain(`${DEFAULT_PREFERENCES.rippleSize} px`);
   button('Dismiss error').click();
   flushSync();
   expect(document.querySelector('[role="alert"]')).toBeNull();

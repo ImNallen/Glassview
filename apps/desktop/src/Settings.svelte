@@ -36,7 +36,10 @@
   const SIZES: readonly { id: PillSize; label: string }[] = [{ id: 'small', label: 'Small' }, { id: 'medium', label: 'Medium' }, { id: 'large', label: 'Large' }];
   const FONTS = Object.keys(PILL_FONTS) as PillFont[];
   const COMMAND_KEYS = mac ? '⌘, ⌃, or ⌥' : 'Ctrl, Alt, or Win';
-  let preferences = $derived(session.preferences);
+  // Edits the session has not echoed yet. Every send carries all of them, so one field's edit never drops another's.
+  let draft = $state.raw<Partial<Preferences>>({});
+  let preferences = $derived({ ...session.preferences, ...draft });
+  let flush: number | undefined;
   let problem = $state('');
   let message = $derived(problem || session.error);
   const report = (error: unknown) => problem = String(error);
@@ -48,7 +51,14 @@
   }
   function update(patch: Partial<Preferences>) {
     problem = '';
-    savePreferences({ ...session.preferences, ...patch }).catch(report);
+    draft = { ...draft, ...patch };
+    flush ??= requestAnimationFrame(send);
+  }
+  async function send() {
+    flush = undefined;
+    const sent = draft;
+    await savePreferences({ ...session.preferences, ...sent }).catch(report);
+    if (draft === sent) draft = {};
   }
   function dismiss() {
     problem = '';
