@@ -43,6 +43,8 @@ export async function subscribe(fn: (session: Session) => void): Promise<Unliste
 }
 export const action = (action: Action): Promise<void> => invoke('action', { action });
 export const savePreferences = (preferences: Preferences): Promise<void> => invoke('set_preferences', { preferences });
-/** Rust sends each overlay only its own display's events, so listen on this window rather than globally. */
-export const onOverlay = (fn: (event: OverlayEvent) => void): Promise<UnlistenFn> =>
-  getCurrentWebviewWindow().listen<OverlayEvent>('overlay', event => fn(event.payload));
+/** Rust emits each overlay's events under that overlay's own window label; see the pipeline thread for why. */
+export const onOverlay = (fn: (event: OverlayEvent) => void): Promise<UnlistenFn> => {
+  const window = getCurrentWebviewWindow();
+  return window.listen<OverlayEvent>(window.label, event => fn(event.payload));
+};

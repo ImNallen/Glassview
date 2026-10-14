@@ -324,8 +324,10 @@ pub(crate) fn start(app: tauri::AppHandle, mut pipeline: Pipeline) -> PipelineHa
                 None => pipeline.flush(Instant::now()),
             };
             for Emit { overlay, event } in emits {
-                if let Err(error) = app.emit_to(Surface::Overlay(overlay).label(), "overlay", event)
-                {
+                // Tauri evaluates a named event in every webview listening on that name, even ones
+                // the target excludes, so the name is the overlay's own label rather than a shared one.
+                let label = Surface::Overlay(overlay).label();
+                if let Err(error) = app.emit_to(&label, &label, event) {
                     log::warn!("Could not update overlay {overlay}: {error}");
                 }
             }
