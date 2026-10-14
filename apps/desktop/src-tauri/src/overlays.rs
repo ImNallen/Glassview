@@ -158,9 +158,27 @@ fn build_overlay(app: &tauri::AppHandle, index: usize) -> Result<tauri::WebviewW
     // aborts the process on Linux. macOS and Windows realize it in time.
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     window.set_ignore_cursor_events(true)?;
+    #[cfg(target_os = "macos")]
+    window.with_webview(|webview| ignore_webview_events(webview.inner()))?;
     let native = window.clone();
     window.run_on_main_thread(move || configure_native(&native))?;
     Ok(window)
+}
+
+/// A click-through window still gets mouse moves through WKWebView's tracking areas,
+/// and WebKit re-adds them if they are removed. Each move then costs a round trip to
+/// the web process and a synchronous WindowServer hit test.
+#[cfg(target_os = "macos")]
+fn ignore_webview_events(webview: *mut std::ffi::c_void) {
+    use objc2::{msg_send, runtime::AnyObject, sel};
+    let webview = unsafe { &*(webview as *const AnyObject) };
+    let supported: bool =
+        unsafe { msg_send![webview, respondsToSelector: sel!(_setIgnoresAllEvents:)] };
+    if supported {
+        let _: () = unsafe { msg_send![webview, _setIgnoresAllEvents: true] };
+    } else {
+        log::warn!("WKWebView has no _setIgnoresAllEvents:, so overlays will track the pointer");
+    }
 }
 
 fn configure_native(window: &tauri::WebviewWindow) {
