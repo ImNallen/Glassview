@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chipLabel, pushStroke, type Pill } from './pill';
+import { chipLabel, clickChord, pushStroke, type Pill } from './pill';
 import type { StrokeView } from './native';
 
 const FADE = 1500;
@@ -11,6 +11,23 @@ function typed(strokes: StrokeView[], pill: Pill | null = null, start = 0): stri
   return pill!.chips.map(chip => chip.count > 1 ? `${chipLabel(chip)} ×${chip.count}` : chipLabel(chip));
 }
 const chars = (word: string) => [...word].map(text);
+
+describe('clickChord', () => {
+  it.each<[string, { mods: string; button: string } | null]>([
+    ['⇧⌘Click', { mods: '⇧⌘', button: 'left' }],
+    ['⌃Click', { mods: '⌃', button: 'left' }],
+    ['Ctrl+Shift+Right-click', { mods: 'Ctrl+Shift+', button: 'right' }],
+    ['Middle-click', { mods: '', button: 'middle' }],
+    ['Back', { mods: '', button: 'back' }],
+    ['Forward', { mods: '', button: 'forward' }],
+    ['Win+Back', { mods: 'Win+', button: 'back' }],
+    ['⌘K', null],
+    ['Backspace', null],
+    ['Ctrl+Backspace', null],
+    ['⇧⌘P', null],
+    ['MyClick', null],
+  ])('%s', (label, parsed) => expect(clickChord(label)).toEqual(parsed));
+});
 
 describe('pushStroke', () => {
   it.each<[string, StrokeView[], string[]]>([

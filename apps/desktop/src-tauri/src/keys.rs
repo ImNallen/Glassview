@@ -125,6 +125,17 @@ pub(crate) enum StrokeView {
     Chord { label: String },
     Text { text: String },
 }
+impl StrokeView {
+    pub(crate) fn chord(mods: Mods, name: &str, os: Os) -> Self {
+        let label = mods
+            .label(os)
+            .into_iter()
+            .chain([name.to_owned()])
+            .collect::<Vec<_>>()
+            .join(os.separator());
+        Self::Chord { label }
+    }
+}
 
 pub(crate) fn may_show(mods: Mods, mode: KeyMode) -> bool {
     mode == KeyMode::All || mods.has_command()
@@ -178,18 +189,8 @@ impl Stroke {
     pub(crate) fn view(&self, os: Os) -> StrokeView {
         match self.text {
             Some(c) => StrokeView::Text { text: c.into() },
-            None => StrokeView::Chord {
-                label: self.label(os),
-            },
+            None => StrokeView::chord(self.mods, &key_name(self.key, os), os),
         }
-    }
-    fn label(&self, os: Os) -> String {
-        self.mods
-            .label(os)
-            .into_iter()
-            .chain([key_name(self.key, os)])
-            .collect::<Vec<_>>()
-            .join(os.separator())
     }
 }
 

@@ -1,10 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { fade } from 'svelte/transition';
+  import ClickIcon from './ClickIcon.svelte';
   import { PILL_FONTS } from './lib/fonts';
   import { onOverlay, type Session } from './lib/native';
   import { BUTTON_GLYPHS, dropRipple, expirePill, initial, pillAnchor, reduce, rippleColor, SCROLL_GLYPHS } from './lib/overlay';
-  import { chipLabel } from './lib/pill';
+  import { chipLabel, clickChord } from './lib/pill';
   let { session }: { session: Session } = $props();
   const FADE_OUT_MS = 200;
   const SCROLL_MS = 400;
@@ -53,8 +54,9 @@
     <div class={`pill ${preferences.pillSize}`} class:fading style={pillAnchor(preferences.pillPosition)} style:--fade-out={`${FADE_OUT_MS}ms`}
       style:--font={PILL_FONTS[preferences.pillFont].family} style:--mono={PILL_FONTS[preferences.pillFont].mono}>
       {#each view.pill.chips as chip, index (index)}
+        {@const click = chip.kind === 'chord' ? clickChord(chip.label) : null}
         <span class={`chip ${chip.kind}`}>
-          <span class="chip-label">{chipLabel(chip)}</span>
+          <span class="chip-label">{#if click}{#if click.mods}{click.mods}{/if}<ClickIcon button={click.button}/>{:else}{chipLabel(chip)}{/if}</span>
           {#if chip.count > 1}<small class="repeat">×{chip.count}</small>{/if}
         </span>
       {/each}
@@ -78,6 +80,7 @@
   .large { font-size: 40px; }
   .chip { display: inline-flex; align-items: center; gap: .4em; padding: .22em .48em; border-radius: .48em; background: color-mix(in srgb, var(--gb-surface) 72%, transparent); box-shadow: inset 0 0 0 1px var(--gb-border), 0 2px 4px var(--gb-shadow); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); line-height: 1.25; }
   .chip.chord { background: linear-gradient(180deg, color-mix(in srgb, var(--gb-input-surface) 74%, transparent), color-mix(in srgb, var(--gb-surface) 74%, transparent)); font-weight: 600; letter-spacing: .02em; }
+  .chip-label { display: inline-flex; align-items: center; gap: .16em; }
   .chip.text { font-family: var(--mono); color: var(--gb-secondary-text); }
   .repeat { padding: .12em .36em; border-radius: .4em; background: var(--gb-hover); color: var(--gb-muted); font-size: .62em; font-weight: 500; line-height: 1.25; font-variant-numeric: tabular-nums; }
   @keyframes fade { from { opacity: 1; } to { opacity: 0; } }

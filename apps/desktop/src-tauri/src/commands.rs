@@ -125,12 +125,15 @@ pub(crate) fn activate_app() {
 
 pub(crate) fn apply(app: &tauri::AppHandle) -> Result<()> {
     let session = snapshot(app);
-    let Preferences { keys, halo, .. } = session.preferences;
+    let Preferences {
+        keys, halo, clicks, ..
+    } = session.preferences;
     overlays::set_overlays_visible(app, session.enabled)?;
     app.state::<Arc<Gate>>().set(session.enabled, keys, halo);
     app.state::<PipelineHandle>().send(Msg::Config(Config {
         enabled: session.enabled,
         halo,
+        clicks,
     }));
     // Settings exists only while open; its webview process would otherwise stay resident.
     match Surface::Settings.window(app) {

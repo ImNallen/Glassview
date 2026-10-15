@@ -4,7 +4,7 @@
   import GitHubIcon from './GitHubIcon.svelte';
   import Logo from './Logo.svelte';
   import { PILL_FONTS } from './lib/fonts';
-  import { action, savePreferences, type Action, type KeyMode, type PillFont, type PillPosition, type PillSize, type Preferences, type Session } from './lib/native';
+  import { action, savePreferences, type Action, type ClickDisplay, type KeyMode, type PillFont, type PillPosition, type PillSize, type Preferences, type Session } from './lib/native';
   let { session }: { session: Session } = $props();
   type Tab = 'general' | 'clicks' | 'keys';
   const TABS: readonly { id: Tab; label: string; icon: typeof Keyboard }[] = [
@@ -28,6 +28,7 @@
   }
   const mac = navigator.userAgent.includes('Mac');
   const BUTTONS: readonly { id: keyof Preferences['rippleColors']; label: string }[] = [{ id: 'left', label: 'Left' }, { id: 'right', label: 'Right' }, { id: 'middle', label: 'Middle' }];
+  const CLICK_DISPLAYS: readonly { id: ClickDisplay; label: string }[] = [{ id: 'rings', label: 'Rings' }, { id: 'pill', label: 'In the pill' }];
   const MODES: readonly { id: KeyMode; label: string }[] = [{ id: 'shortcuts', label: 'Shortcuts only' }, { id: 'all', label: 'All keys' }];
   const POSITIONS: readonly { id: PillPosition; label: string }[] = [
     { id: 'top-left', label: 'Top left' }, { id: 'top-right', label: 'Top right' }, { id: 'bottom-left', label: 'Bottom left' },
@@ -54,6 +55,10 @@
     problem = '';
     if (session.error) run('dismiss-error');
   }
+  let inPill = $derived(preferences.clicks === 'pill');
+  let clickNote = $derived(inPill
+    ? 'Clicks appear in the pill with their modifiers, even in Shortcuts only mode. The halo and scroll badge still follow the pointer.'
+    : 'A ring marks each click, with any modifiers beside it.');
   let keyNote = $derived(preferences.keys === 'shortcuts'
     ? `Only keys pressed with ${COMMAND_KEYS} appear. Typed text, including passwords, is never shown.`
     : mac ? 'Everything you type appears on screen. Password fields stay hidden.' : 'Everything you type appears on screen, including passwords.');
@@ -126,22 +131,28 @@
         <section class="group" aria-labelledby="fade-title">
           <h2 id="fade-title">Auto-fade</h2>
           <div class="list">
-            <label class="row"><span class="row-label">Fade after<small>{(preferences.fadeMs / 1000).toFixed(1)} s without a key</small></span>
+            <label class="row"><span class="row-label">Fade after<small>{(preferences.fadeMs / 1000).toFixed(1)} s without a key{inPill ? ' or click' : ''}</small></span>
               <input type="range" min="500" max="5000" step="100" value={preferences.fadeMs} oninput={event => update({ fadeMs: event.currentTarget.valueAsNumber })}/></label>
           </div>
         </section>
       {:else if tab === 'clicks'}
         <section class="group" aria-labelledby="clicks-title">
           <h2 id="clicks-title"><MousePointerClick size={12}/>Clicks</h2>
+          <div class="segmented" role="group" aria-labelledby="clicks-title">
+            {#each CLICK_DISPLAYS as display}
+              <button class:chosen={preferences.clicks === display.id} aria-pressed={preferences.clicks === display.id} onclick={() => update({ clicks: display.id })}>{display.label}</button>
+            {/each}
+          </div>
+          <p class="note">{clickNote}</p>
           <div class="list">
-            <div class="row"><span class="row-label">Ripple colors</span>
+            <div class="row"><span class="row-label">Ripple colors{#if inPill}<small>Tint the pointer halo</small>{/if}</span>
               {#each BUTTONS as button}
                 <label class="color" title={`${button.label} button`}><input type="color" aria-label={`${button.label} button color`} value={preferences.rippleColors[button.id]}
                   oninput={event => update({ rippleColors: { ...preferences.rippleColors, [button.id]: event.currentTarget.value } })}/><small>{button.label}</small></label>
               {/each}
             </div>
-            <label class="row"><span class="row-label">Ripple size<small>{preferences.rippleSize} px</small></span>
-              <input type="range" min="24" max="160" step="4" value={preferences.rippleSize} oninput={event => update({ rippleSize: event.currentTarget.valueAsNumber })}/></label>
+            <label class="row" class:off={inPill}><span class="row-label">Ripple size<small>{inPill ? 'Rings are off' : `${preferences.rippleSize} px`}</small></span>
+              <input type="range" min="24" max="160" step="4" disabled={inPill} value={preferences.rippleSize} oninput={event => update({ rippleSize: event.currentTarget.valueAsNumber })}/></label>
             <div class="row">
               <span class="row-label" id="halo-label">Pointer halo<small>A soft glow that follows the pointer</small></span>
               <button class="switch" role="switch" aria-checked={preferences.halo} aria-labelledby="halo-label" onclick={() => update({ halo: !preferences.halo })}><span></span></button>
@@ -208,6 +219,7 @@
   .row + .row { border-top: 1px solid var(--gb-divider); }
   .row-label { flex: 1; min-width: 0; font-size: 12.5px; color: var(--gb-text); }
   .row-label small { display: block; margin-top: 1px; font-size: 10.5px; color: var(--gb-muted); }
+  .row.off { opacity: .5; }
   input[type="range"] { width: 130px; accent-color: var(--gb-focus-ring); }
 
   .tabs, .segmented { display: flex; gap: 2px; padding: 3px; border-radius: 9px; background: color-mix(in srgb, var(--gb-text) 6%, transparent); }

@@ -34,6 +34,35 @@ it('draws a press as a ripple and its modifiers, with nothing left to follow the
   expect(drawn[1].textContent).toBe('⌘');
 });
 
+function buttons(root: ParentNode = document) {
+  return [...root.querySelectorAll('.chip')].map(chip => chip.querySelector('svg')?.getAttribute('data-button') ?? null);
+}
+
+it('draws a pill click as a mouse icon and leaves a key as its word', () => {
+  overlay = mount(Overlay, { target: document.body, props: { session: structuredClone(DEFAULT_SESSION) } });
+  flushSync();
+  emit({ kind: 'key', stroke: { kind: 'chord', label: '⇧⌘Click' } });
+  emit({ kind: 'key', stroke: { kind: 'chord', label: '⇧⌘Click' } });
+  emit({ kind: 'key', stroke: { kind: 'chord', label: 'Ctrl+Shift+Right-click' } });
+  emit({ kind: 'key', stroke: { kind: 'chord', label: '⌘K' } });
+  emit({ kind: 'key', stroke: { kind: 'chord', label: 'Backspace' } });
+  flushSync();
+  const chips = [...document.querySelectorAll('.chip')];
+  expect(chips.map(chip => chip.querySelector('.chip-label')?.textContent)).toEqual(['⇧⌘', 'Ctrl+Shift+', '⌘K', 'Backspace']);
+  expect(chips[0].querySelector('.repeat')?.textContent).toBe('×2');
+  expect(buttons()).toEqual(['left', 'right', null, null]);
+  expect(chips[0].querySelectorAll('svg')).toHaveLength(1);
+});
+
+it('draws the middle, back, and forward buttons as icons', () => {
+  overlay = mount(Overlay, { target: document.body, props: { session: structuredClone(DEFAULT_SESSION) } });
+  flushSync();
+  for (const label of ['Middle-click', 'Back', 'Forward']) emit({ kind: 'key', stroke: { kind: 'chord', label } });
+  flushSync();
+  expect([...document.querySelectorAll('.chip-label')].map(label => label.textContent)).toEqual(['', '', '']);
+  expect(buttons()).toEqual(['middle', 'back', 'forward']);
+});
+
 it('sets the pill in the chosen font', () => {
   const session = structuredClone(DEFAULT_SESSION);
   session.preferences.pillFont = 'rounded';

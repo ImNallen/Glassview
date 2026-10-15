@@ -16,15 +16,19 @@ There's no account, no server, and nothing is recorded or sent over the network.
 
 - **Click ripples:** a short, fading ripple at the pointer, in a different color for the
   left, right, and middle buttons. Pick the colors and the size. The back and forward
-  buttons show **‹** and **›** in the middle button's color.
+  buttons show **‹** and **›** in the middle button's color. Settings can show the click
+  in the shortcut pill instead, with no ripple.
 - **Modifier clicks:** a ⌘-click or Ctrl+Shift-click shows the held modifiers next to
-  the ripple, written the same way as in the shortcut pill.
+  the ripple, written the same way as in the shortcut pill. In the pill, those modifiers
+  sit beside a mouse icon for the button. The filled side is the button that was clicked.
+  The wheel, back, and forward buttons each have their own mark.
 - **Scrolling:** an arrow next to the pointer shows which way the page scrolls while
   you scroll.
 - **Pointer halo:** an optional soft glow that follows the pointer.
 - **Shortcut pill:** shortcuts appear as they're pressed, with modifiers combined
   (**⇧⌘P**, **Ctrl+Alt+Del**) and fast repeats merged (**⌘Z ×3**). The pill fades
-  1.5 seconds after the last key, or after the delay you choose.
+  1.5 seconds after the last key, or after the delay you choose. A click shown in the
+  pill uses that same delay.
 - **Shortcuts only by default:** typed text never appears unless you turn on all keys.
 - **Every display:** each display gets its own overlay. The pill appears on the display
   under the pointer.
@@ -75,7 +79,8 @@ Settings has:
 - **Keys:** shortcuts only, or all keys. Pill size, pill font (Geist, System, or
   Rounded), pill position (a corner or bottom center), and how long the pill stays
   after the last key.
-- **Clicks:** a ripple color for each mouse button, the ripple size, and the pointer halo.
+- **Clicks:** rings at the pointer, or the click in the pill. Ripple colors, the ripple
+  size, and the pointer halo.
 
 Settings are saved between launches.
 
