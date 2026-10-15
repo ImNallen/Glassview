@@ -11,6 +11,7 @@ pub(crate) enum Action {
     CloseSettings,
     OpenGithub,
     RequestKeyAccess,
+    ToggleLaunchAtLogin,
     Relaunch,
     DismissError,
     Quit,
@@ -35,6 +36,7 @@ pub(crate) struct Session {
     /// Access was granted while running, which some macOS versions only honor after a relaunch.
     pub(crate) granted_while_running: bool,
     pub(crate) settings_open: bool,
+    pub(crate) launch_at_login: bool,
     pub(crate) shortcut: &'static str,
     pub(crate) shortcut_unavailable: bool,
     pub(crate) error: Option<String>,
@@ -48,6 +50,7 @@ impl Session {
             key_access,
             granted_while_running: false,
             settings_open: false,
+            launch_at_login: false,
             shortcut: if cfg!(target_os = "macos") {
                 "⌥⇧⌘K"
             } else {
@@ -70,7 +73,11 @@ impl Session {
                 return first_close;
             }
             Action::DismissError => self.error = None,
-            Action::OpenGithub | Action::RequestKeyAccess | Action::Relaunch | Action::Quit => {}
+            Action::OpenGithub
+            | Action::RequestKeyAccess
+            | Action::ToggleLaunchAtLogin
+            | Action::Relaunch
+            | Action::Quit => {}
         }
         false
     }
@@ -135,6 +142,7 @@ mod tests {
         assert_eq!(parse("request-key-access"), Action::RequestKeyAccess);
         assert_eq!(parse("open-settings"), Action::OpenSettings);
         assert_eq!(parse("open-github"), Action::OpenGithub);
+        assert_eq!(parse("toggle-launch-at-login"), Action::ToggleLaunchAtLogin);
         assert!(serde_json::from_value::<Action>("show".into()).is_err());
         assert_eq!(serde_json::to_value(KeyAccess::Unknown).unwrap(), "unknown");
         let json = serde_json::to_value(session()).unwrap();
@@ -147,6 +155,7 @@ mod tests {
                 "error",
                 "grantedWhileRunning",
                 "keyAccess",
+                "launchAtLogin",
                 "preferences",
                 "settingsOpen",
                 "shortcut",

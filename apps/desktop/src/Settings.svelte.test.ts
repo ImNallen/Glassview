@@ -192,6 +192,18 @@ it('toggles through the shared action and closes with Close or Escape, and quits
   expect(action).toHaveBeenLastCalledWith('quit');
 });
 
+it('reflects launch at login from the session and changes it only through the native action', async () => {
+  await open({ launchAtLogin: true });
+  const login = document.querySelector<HTMLButtonElement>('[aria-labelledby="login-label"]')!;
+  expect(login.getAttribute('aria-checked')).toBe('true');
+  expect(document.body.textContent).toContain('Start with Windows');
+  login.click();
+  expect(action).toHaveBeenCalledExactlyOnceWith('toggle-launch-at-login');
+  expect(savePreferences).not.toHaveBeenCalled();
+  await open();
+  expect(document.querySelector('[aria-labelledby="login-label"]')!.getAttribute('aria-checked')).toBe('false');
+});
+
 it('keeps local action and save errors visible across tabs and dismisses them', async () => {
   await open();
   vi.mocked(action).mockRejectedValueOnce(new Error('Action failed'));

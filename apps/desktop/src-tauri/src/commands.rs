@@ -10,6 +10,7 @@ use crate::{
 };
 use std::sync::Arc;
 use tauri::Manager;
+use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 use tauri_plugin_opener::OpenerExt;
 
@@ -58,6 +59,18 @@ pub(crate) fn perform(app: &tauri::AppHandle, action: Action) -> Result<()> {
             return Ok(());
         }
         Action::RequestKeyAccess => return input::request_key_access(app),
+        Action::ToggleLaunchAtLogin => {
+            let autolaunch = app.autolaunch();
+            if snapshot(app).launch_at_login {
+                autolaunch.disable()
+            } else {
+                autolaunch.enable()
+            }
+            .map_err(|e| format!("Could not change launch at login: {e}"))?;
+            refresh_launch_at_login(app);
+            return apply(app);
+        }
+        Action::OpenSettings => refresh_launch_at_login(app),
         Action::Relaunch => app.restart(),
         Action::Quit => {
             app.exit(0);
@@ -80,6 +93,13 @@ pub(crate) fn perform(app: &tauri::AppHandle, action: Action) -> Result<()> {
         }
     }
     Ok(())
+}
+
+pub(crate) fn refresh_launch_at_login(app: &tauri::AppHandle) {
+    match app.autolaunch().is_enabled() {
+        Ok(enabled) => app.state::<AppState>().0.lock().unwrap().launch_at_login = enabled,
+        Err(error) => log::warn!("Could not read launch at login: {error}"),
+    }
 }
 
 fn present_settings(app: &tauri::AppHandle, settings: &tauri::WebviewWindow) -> Result<()> {

@@ -39,6 +39,7 @@ fn main() {
             let handle = app.clone();
             let _ = app.run_on_main_thread(move || open_settings(&handle));
         }))
+        .plugin(tauri_plugin_autostart::Builder::new().build())
         .plugin(
             tauri_plugin_log::Builder::new()
                 .level(log::LevelFilter::Info)
@@ -102,6 +103,7 @@ fn setup(app: &mut tauri::App) -> std::result::Result<(), Box<dyn std::error::Er
     problems.extend(warning);
     let key_access = input::key_access();
     app.manage(AppState(Mutex::new(Session::new(preferences, key_access))));
+    commands::refresh_launch_at_login(&handle);
     app.manage(PreferenceSaves::start(handle.clone()));
     #[cfg(target_os = "macos")]
     app.set_activation_policy(tauri::ActivationPolicy::Accessory);

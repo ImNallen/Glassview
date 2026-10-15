@@ -70,6 +70,8 @@ Settings says so and the icon still works.
 
 Settings has:
 
+- **General:** an on/off switch for showing clicks and keys, and a switch to open
+  Glassview at login (macOS) or start it with Windows.
 - **Keys:** shortcuts only, or all keys. Pill size, pill font (Geist, System, or
   Rounded), pill position (a corner or bottom center), and how long the pill stays
   after the last key.
