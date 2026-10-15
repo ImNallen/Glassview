@@ -3,7 +3,7 @@ use crate::{
     layout::{Layout, Point},
     overlays::Surface,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{
     sync::mpsc::{self, RecvTimeoutError, Sender},
     time::{Duration, Instant},
@@ -23,6 +23,15 @@ pub(crate) enum Button {
     Forward,
 }
 impl Button {
+    fn name(self) -> &'static str {
+        match self {
+            Self::Left => "Click",
+            Self::Right => "Right-click",
+            Self::Middle => "Middle-click",
+            Self::Back => "Back",
+            Self::Forward => "Forward",
+        }
+    }
     #[cfg(any(target_os = "macos", test))]
     pub(crate) fn from_mac_number(number: i64) -> Option<Self> {
         match number {
@@ -91,10 +100,18 @@ pub(crate) enum InputEvent {
     },
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum ClickDisplay {
+    Rings,
+    Pill,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Config {
     pub(crate) enabled: bool,
     pub(crate) halo: bool,
+    pub(crate) clicks: ClickDisplay,
 }
 
 pub(crate) enum Msg {
@@ -182,11 +199,16 @@ impl Pipeline {
                     .locate(at)
                     .map(|(overlay, css)| Emit {
                         overlay,
-                        event: OverlayEvent::Click {
-                            button,
-                            mods: mods.label(self.os),
-                            x: css.x,
-                            y: css.y,
+                        event: match self.config.clicks {
+                            ClickDisplay::Rings => OverlayEvent::Click {
+                                button,
+                                mods: mods.label(self.os),
+                                x: css.x,
+                                y: css.y,
+                            },
+                            ClickDisplay::Pill => OverlayEvent::Key {
+                                stroke: StrokeView::chord(mods, button.name(), self.os),
+                            },
                         },
                     })
                     .into_iter()
@@ -347,6 +369,7 @@ mod tests {
     const ON: Config = Config {
         enabled: true,
         halo: true,
+        clicks: ClickDisplay::Rings,
     };
     fn at(x: f64, y: f64) -> Point {
         Point { x, y }
@@ -401,6 +424,7 @@ mod tests {
     const HALO_OFF: Config = Config {
         enabled: true,
         halo: false,
+        clicks: ClickDisplay::Rings,
     };
     fn command_p() -> Stroke {
         let press = KeyPress {
@@ -471,7 +495,7 @@ mod tests {
         pipeline.handle(hover(1.0, 1.0), start);
         let disabled = Config {
             enabled: false,
-            halo: true,
+            ..ON
         };
         assert_eq!(
             pipeline.handle(Msg::Config(disabled), start),
@@ -521,6 +545,92 @@ mod tests {
         assert_eq!(
             windows.handle(press(Button::Middle, Mods::CTRL, 10.0, 10.0), now),
             [click(0, Button::Middle, Some("Ctrl"), 10.0, 10.0)]
+        );
+    }
+
+    const PILL: Config = Config {
+        clicks: ClickDisplay::Pill,
+        ..ON
+    };
+    fn chord(overlay: usize, label: &str) -> Emit {
+        Emit {
+            overlay,
+            event: OverlayEvent::Key {
+                stroke: StrokeView::Chord {
+                    label: label.into(),
+                },
+            },
+        }
+    }
+
+    #[test]
+    fn pill_clicks_are_chords_in_each_os_wording() {
+        for (os, button, mods, label) in [
+            (Os::Mac, Button::Left, Mods::SHIFT | Mods::META, "⇧⌘Click"),
+            (Os::Mac, Button::Left, Mods::CTRL, "⌃Click"),
+            (
+                Os::Windows,
+                Button::Right,
+                Mods::CTRL | Mods::SHIFT,
+                "Ctrl+Shift+Right-click",
+            ),
+            (Os::Mac, Button::Middle, Mods::NONE, "Middle-click"),
+            (Os::Mac, Button::Back, Mods::NONE, "Back"),
+            (Os::Windows, Button::Forward, Mods::NONE, "Forward"),
+        ] {
+            let mut pipeline = Pipeline::new(os, PILL, two_displays());
+            assert_eq!(
+                pipeline.handle(press(button, mods, 1500.0, 400.0), Instant::now()),
+                [chord(1, label)]
+            );
+        }
+    }
+
+    #[test]
+    fn pill_clicks_off_every_display_or_while_disabled_show_nothing() {
+        let now = Instant::now();
+        let mut pipeline = Pipeline::new(Os::Mac, PILL, two_displays());
+        assert_eq!(
+            pipeline.handle(press(Button::Left, Mods::NONE, 500.0, 900.0), now),
+            []
+        );
+        let disabled = Config {
+            enabled: false,
+            ..PILL
+        };
+        pipeline.handle(Msg::Config(disabled), now);
+        assert_eq!(
+            pipeline.handle(press(Button::Left, Mods::NONE, 10.0, 10.0), now),
+            []
+        );
+    }
+
+    #[test]
+    fn pill_clicks_keep_the_halo_and_scroll_badge() {
+        let start = Instant::now();
+        let mut pipeline = Pipeline::new(Os::Mac, PILL, two_displays());
+        assert_eq!(
+            pipeline.handle(hover(10.0, 10.0), start),
+            [halo(0, Some(at(10.0, 10.0)))]
+        );
+        assert_eq!(
+            pipeline.handle(press(Button::Left, Mods::NONE, 10.0, 10.0), start),
+            [chord(0, "Click")]
+        );
+        let scroll = InputEvent::Scroll {
+            at: at(10.0, 10.0),
+            delta: ScrollDelta { dx: 0.0, dy: 3.0 },
+        };
+        assert_eq!(
+            pipeline.handle(input(scroll), start + TICK),
+            [Emit {
+                overlay: 0,
+                event: OverlayEvent::Scroll {
+                    x: 10.0,
+                    y: 10.0,
+                    direction: ScrollDirection::Up,
+                },
+            }]
         );
     }
 
@@ -593,7 +703,7 @@ mod tests {
         pipeline.handle(scroll(), start + Duration::from_millis(1));
         let disabled = Config {
             enabled: false,
-            halo: false,
+            ..HALO_OFF
         };
         pipeline.handle(Msg::Config(disabled), start);
         assert_eq!(pipeline.flush(start + TICK), []);
@@ -619,18 +729,13 @@ mod tests {
                 cursor: at(x, 10.0),
             })
         };
-        let chord = |overlay| Emit {
-            overlay,
-            event: OverlayEvent::Key {
-                stroke: StrokeView::Chord {
-                    label: "Win+Shift+P".into(),
-                },
-            },
-        };
-        assert_eq!(pipeline.handle(key(1200.0), Instant::now()), [chord(1)]);
+        assert_eq!(
+            pipeline.handle(key(1200.0), Instant::now()),
+            [chord(1, "Win+Shift+P")]
+        );
         assert_eq!(
             pipeline.handle(key(-50.0), Instant::now()),
-            [chord(0)],
+            [chord(0, "Win+Shift+P")],
             "outside every display"
         );
         pipeline.handle(Msg::Layout(Layout::default()), Instant::now());

@@ -5,12 +5,13 @@ import defaults from '../contract/preference-defaults.json';
 
 export type Button = 'left' | 'right' | 'middle' | 'back' | 'forward';
 export type KeyMode = 'shortcuts' | 'all';
+export type ClickDisplay = 'rings' | 'pill';
 export type PillPosition = 'bottom-center' | 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right';
 export type PillSize = 'small' | 'medium' | 'large';
 export type PillFont = 'geist' | 'system' | 'rounded';
 export interface Preferences {
   rippleColors: Record<'left' | 'right' | 'middle', string>; rippleSize: number; halo: boolean;
-  pillPosition: PillPosition; pillSize: PillSize; pillFont: PillFont; fadeMs: number; keys: KeyMode; onboarded: boolean;
+  pillPosition: PillPosition; pillSize: PillSize; pillFont: PillFont; fadeMs: number; clicks: ClickDisplay; keys: KeyMode; onboarded: boolean;
 }
 export type KeyAccess = 'granted' | 'denied' | 'unknown';
 export interface Session {

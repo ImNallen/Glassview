@@ -113,6 +113,7 @@ fn setup(app: &mut tauri::App) -> std::result::Result<(), Box<dyn std::error::Er
     let config = Config {
         enabled: session.enabled,
         halo: session.preferences.halo,
+        clicks: session.preferences.clicks,
     };
     let pipeline = pipeline::start(
         handle.clone(),
