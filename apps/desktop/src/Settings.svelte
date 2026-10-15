@@ -84,6 +84,10 @@
             <span class="row-label" id="enabled-label">Show clicks and keys<small>Toggle anytime with <kbd>{session.shortcut}</kbd></small></span>
             <button class="switch" role="switch" aria-checked={session.enabled} aria-labelledby="enabled-label" onclick={() => run('toggle')}><span></span></button>
           </div>
+          <div class="row">
+            <span class="row-label" id="login-label">{mac ? 'Open at login' : 'Start with Windows'}<small>Glassview starts in the {mac ? 'menu bar' : 'tray'}</small></span>
+            <button class="switch" role="switch" aria-checked={session.launchAtLogin} aria-labelledby="login-label" onclick={() => run('toggle-launch-at-login')}><span></span></button>
+          </div>
         </div>
         {#if session.shortcutUnavailable}<p class="note warning" role="alert">Another app is using {session.shortcut}, so it can’t toggle Glassview. Use the {mac ? 'menu bar' : 'tray'} icon instead.</p>{/if}
 

@@ -15,10 +15,10 @@ export interface Preferences {
 export type KeyAccess = 'granted' | 'denied' | 'unknown';
 export interface Session {
   enabled: boolean; preferences: Preferences; keyAccess: KeyAccess; grantedWhileRunning: boolean; settingsOpen: boolean;
-  shortcut: string; shortcutUnavailable: boolean; error: string | null;
+  launchAtLogin: boolean; shortcut: string; shortcutUnavailable: boolean; error: string | null;
 }
 export type Action = 'toggle' | 'enable' | 'disable' | 'open-settings' | 'close-settings' | 'open-github'
-  | 'request-key-access' | 'relaunch' | 'dismiss-error' | 'quit';
+  | 'request-key-access' | 'toggle-launch-at-login' | 'relaunch' | 'dismiss-error' | 'quit';
 export type StrokeView = { kind: 'chord'; label: string } | { kind: 'text'; text: string };
 export interface Point { x: number; y: number }
 export type ScrollDirection = 'up' | 'down' | 'left' | 'right';
@@ -31,7 +31,7 @@ export type OverlayEvent =
 export const DEFAULT_PREFERENCES: Preferences = defaults as Preferences;
 export const DEFAULT_SESSION: Session = {
   enabled: true, preferences: DEFAULT_PREFERENCES, keyAccess: 'granted', grantedWhileRunning: false, settingsOpen: false,
-  shortcut: '', shortcutUnavailable: false, error: null,
+  launchAtLogin: false, shortcut: '', shortcutUnavailable: false, error: null,
 };
 
 export async function subscribe(fn: (session: Session) => void): Promise<UnlistenFn> {
