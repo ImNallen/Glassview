@@ -1,4 +1,4 @@
-import type { StrokeView } from './native';
+import type { Button, StrokeView } from './native';
 
 export interface Chip { kind: 'chord' | 'text'; label: string; count: number }
 export interface Pill { chips: Chip[]; lastAt: number }
@@ -32,4 +32,25 @@ export function pushStroke(pill: Pill | null, stroke: StrokeView, now: number, f
 
 export function chipLabel(chip: Chip): string {
   return chip.kind === 'text' && chip.count > 1 && chip.label === ' ' ? '␣' : chip.label;
+}
+
+const CLICK_NAMES: [string, Button][] = [
+  ['Click', 'left'],
+  ['Right-click', 'right'],
+  ['Middle-click', 'middle'],
+  ['Back', 'back'],
+  ['Forward', 'forward'],
+];
+CLICK_NAMES.sort((a, b) => b[0].length - a[0].length);
+
+const MAC_MODIFIERS = /^[⌃⌥⇧⌘]+$/u;
+
+export function clickChord(label: string): { mods: string; button: Button } | null {
+  for (const [name, button] of CLICK_NAMES) {
+    if (label === name) return { mods: '', button };
+    if (!label.endsWith(name)) continue;
+    const mods = label.slice(0, -name.length);
+    if (mods.endsWith('+') || MAC_MODIFIERS.test(mods)) return { mods, button };
+  }
+  return null;
 }

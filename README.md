@@ -20,7 +20,8 @@ There's no account, no server, and nothing is recorded or sent over the network.
   in the shortcut pill instead, with no ripple.
 - **Modifier clicks:** a ⌘-click or Ctrl+Shift-click shows the held modifiers next to
   the ripple, written the same way as in the shortcut pill. In the pill, those modifiers
-  join the click, as in **⇧⌘Click** or **Ctrl+Shift+Right-click**.
+  sit beside a mouse icon for the button. The filled side is the button that was clicked.
+  The wheel, back, and forward buttons each have their own mark.
 - **Scrolling:** an arrow next to the pointer shows which way the page scrolls while
   you scroll.
 - **Pointer halo:** an optional soft glow that follows the pointer.
