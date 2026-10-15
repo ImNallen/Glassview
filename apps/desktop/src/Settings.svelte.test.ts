@@ -129,6 +129,7 @@ it('saves every labeled position and the existing inactivity fade range on Gener
   const fade = input('Fade after', '2300');
   expect([fade.min, fade.max, fade.step]).toEqual(['500', '5000', '100']);
   expect(document.body.textContent).toContain('s without a key');
+  expect(document.body.textContent).not.toContain('or click');
   expect(savePreferences).toHaveBeenLastCalledWith({ ...DEFAULT_PREFERENCES, fadeMs: 2300 });
 });
 
@@ -145,6 +146,24 @@ it('saves click colors independently, ripple size and pointer halo', async () =>
   document.querySelector<HTMLButtonElement>('[aria-labelledby="halo-label"]')!.click();
   expect(savePreferences).toHaveBeenLastCalledWith({ ...DEFAULT_PREFERENCES, halo: true });
   expect(action).not.toHaveBeenCalled();
+});
+
+it('saves clicks in the pill and turns off only the ring size', async () => {
+  await open();
+  select('Clicks');
+  expect(button('Rings').getAttribute('aria-pressed')).toBe('true');
+  expect(document.body.textContent).toContain('A ring marks each click');
+  button('In the pill').click();
+  expect(savePreferences).toHaveBeenLastCalledWith({ ...DEFAULT_PREFERENCES, clicks: 'pill' });
+  await open({ preferences: { ...DEFAULT_PREFERENCES, clicks: 'pill' } });
+  select('Clicks');
+  expect(document.body.textContent).toContain('even in Shortcuts only mode');
+  expect(document.body.textContent).toContain('Rings are off');
+  expect(document.body.textContent).toContain('Tint the pointer halo');
+  expect(document.querySelector<HTMLInputElement>('input[type="range"]')!.disabled).toBe(true);
+  expect(input('Left button color', '#123456').disabled).toBe(false);
+  select('General');
+  expect(document.body.textContent).toContain('s without a key or click');
 });
 
 it('preserves every permission branch and action', async () => {
