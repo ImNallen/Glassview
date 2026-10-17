@@ -28,6 +28,12 @@ impl Mods {
                 (Self::ALT, "Alt"),
                 (Self::SHIFT, "Shift"),
             ],
+            Os::Linux => [
+                (Self::META, "Super"),
+                (Self::CTRL, "Ctrl"),
+                (Self::ALT, "Alt"),
+                (Self::SHIFT, "Shift"),
+            ],
         };
         (self != Self::NONE).then(|| {
             names
@@ -104,17 +110,20 @@ pub(crate) struct Stroke {
 pub(crate) enum Os {
     Mac,
     Windows,
+    Linux,
 }
 impl Os {
     pub(crate) const CURRENT: Self = if cfg!(target_os = "macos") {
         Self::Mac
+    } else if cfg!(target_os = "linux") {
+        Self::Linux
     } else {
         Self::Windows
     };
     fn separator(self) -> &'static str {
         match self {
             Self::Mac => "",
-            Self::Windows => "+",
+            Self::Windows | Self::Linux => "+",
         }
     }
 }
@@ -185,6 +194,19 @@ pub(crate) fn windows_typed_text(
     }
 }
 
+/// On Linux AltGr is ISO_Level3_Shift, not Alt, and the layout resolves it to a
+/// third level, so `translate` already yields the AltGr character.
+#[cfg(any(target_os = "linux", test))]
+pub(crate) fn linux_typed_text(
+    mods: Mods,
+    translate: impl FnOnce() -> Option<char>,
+) -> Option<char> {
+    if mods.has_command() {
+        return None;
+    }
+    translate().filter(printable)
+}
+
 impl Stroke {
     pub(crate) fn view(&self, os: Os) -> StrokeView {
         match self.text {
@@ -219,7 +241,7 @@ fn key_name(key: Key, os: Os) -> String {
     };
     match os {
         Os::Mac => mac,
-        Os::Windows => windows,
+        Os::Windows | Os::Linux => windows,
     }
     .into()
 }
@@ -250,6 +272,7 @@ mod tests {
         let text = match os {
             Os::Mac => mac_typed_text(mods, || layout),
             Os::Windows => windows_typed_text(mods, numpad_digit, || layout),
+            Os::Linux => linux_typed_text(mods, || layout),
         };
         admit(KeyPress { mods, key, text }, mode).map(|stroke| stroke.view(os))
     }
@@ -353,12 +376,61 @@ mod tests {
     }
 
     #[test]
+    fn linux_shows_commands_and_hides_typing_in_shortcuts_mode() {
+        let linux = |mods, key, layout| shown(Os::Linux, Shortcuts, mods, key, None, layout);
+        assert_eq!(linux(M::CTRL, Char('c'), Some('\u{3}')), chord("Ctrl+C"));
+        assert_eq!(linux(M::ALT, Char('f'), Some('f')), chord("Alt+F"));
+        assert_eq!(linux(M::META, Char('d'), Some('d')), chord("Super+D"));
+        assert_eq!(
+            linux(M::META | M::SHIFT, Char('s'), Some('S')),
+            chord("Super+Shift+S")
+        );
+        assert_eq!(
+            linux(M::CTRL | M::SHIFT, Char('p'), Some('P')),
+            chord("Ctrl+Shift+P")
+        );
+        assert_eq!(
+            linux(M::CTRL | M::ALT, Char('t'), Some('t')),
+            chord("Ctrl+Alt+T"),
+            "Ctrl+Alt is not AltGr on Linux"
+        );
+        assert_eq!(linux(M::ALT, Named(Tab), Some('\t')), chord("Alt+Tab"));
+        assert_eq!(linux(M::NONE, Char('a'), Some('a')), None);
+        assert_eq!(linux(M::SHIFT, Char('a'), Some('A')), None);
+        assert_eq!(
+            linux(M::NONE, Char('q'), Some('ä')),
+            None,
+            "AltGr+Q types ä"
+        );
+        assert_eq!(linux(M::NONE, Named(F(5)), None), None);
+        assert_eq!(linux(M::CTRL, Named(PageDown), None), chord("Ctrl+PgDn"));
+    }
+
+    #[test]
+    fn linux_shows_everything_in_all_keys_mode() {
+        let linux = |mods, key, layout| shown(Os::Linux, All, mods, key, None, layout);
+        assert_eq!(linux(M::NONE, Char('h'), Some('h')), text("h"));
+        assert_eq!(linux(M::SHIFT, Char('h'), Some('H')), text("H"));
+        assert_eq!(linux(M::NONE, Char('q'), Some('ä')), text("ä"), "AltGr+Q");
+        assert_eq!(linux(M::ALT, Char('f'), Some('f')), chord("Alt+F"));
+        assert_eq!(
+            linux(M::NONE, Named(Backspace), Some('\u{8}')),
+            chord("Backspace")
+        );
+        assert_eq!(linux(M::NONE, Named(Escape), Some('\u{1b}')), chord("Esc"));
+    }
+
+    #[test]
     fn modifiers_are_labelled_in_each_os_order() {
         let all = M::META | M::SHIFT | M::ALT | M::CTRL;
         assert_eq!(all.label(Os::Mac).as_deref(), Some("⌃⌥⇧⌘"));
         assert_eq!(
             all.label(Os::Windows).as_deref(),
             Some("Win+Ctrl+Alt+Shift")
+        );
+        assert_eq!(
+            all.label(Os::Linux).as_deref(),
+            Some("Super+Ctrl+Alt+Shift")
         );
         assert_eq!(M::SHIFT.label(Os::Mac).as_deref(), Some("⇧"));
         assert_eq!(

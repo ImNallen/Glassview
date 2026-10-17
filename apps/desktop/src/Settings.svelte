@@ -26,7 +26,12 @@
     select(next);
     document.getElementById(`tab-${next}`)?.focus();
   }
-  const mac = navigator.userAgent.includes('Mac');
+  const PLATFORM = navigator.userAgent.includes('Mac') ? 'mac' : navigator.userAgent.includes('Linux') ? 'linux' : 'windows';
+  const COPY = {
+    mac: { commandKeys: '⌘, ⌃, or ⌥', login: 'Open at login', home: 'menu bar', allKeys: 'Everything you type appears on screen. Password fields stay hidden.', unseen: '' },
+    windows: { commandKeys: 'Ctrl, Alt, or Win', login: 'Start with Windows', home: 'tray', allKeys: 'Everything you type appears on screen, including passwords.', unseen: ' Apps running as administrator can’t be seen.' },
+    linux: { commandKeys: 'Ctrl, Alt, or Super', login: 'Open at login', home: 'tray', allKeys: 'Everything you type appears on screen, including passwords.', unseen: '' },
+  }[PLATFORM];
   const BUTTONS: readonly { id: keyof Preferences['rippleColors']; label: string }[] = [{ id: 'left', label: 'Left' }, { id: 'right', label: 'Right' }, { id: 'middle', label: 'Middle' }];
   const CLICK_DISPLAYS: readonly { id: ClickDisplay; label: string }[] = [{ id: 'rings', label: 'Rings' }, { id: 'pill', label: 'In the pill' }];
   const MODES: readonly { id: KeyMode; label: string }[] = [{ id: 'shortcuts', label: 'Shortcuts only' }, { id: 'all', label: 'All keys' }];
@@ -36,7 +41,6 @@
   ];
   const SIZES: readonly { id: PillSize; label: string }[] = [{ id: 'small', label: 'Small' }, { id: 'medium', label: 'Medium' }, { id: 'large', label: 'Large' }];
   const FONTS = Object.keys(PILL_FONTS) as PillFont[];
-  const COMMAND_KEYS = mac ? '⌘, ⌃, or ⌥' : 'Ctrl, Alt, or Win';
   let preferences = $derived(session.preferences);
   let problem = $state('');
   let message = $derived(problem || session.error);
@@ -60,8 +64,8 @@
     ? 'Clicks appear in the pill with their modifiers, even in Shortcuts only mode. The halo and scroll badge still follow the pointer.'
     : 'A ring marks each click, with any modifiers beside it.');
   let keyNote = $derived(preferences.keys === 'shortcuts'
-    ? `Only keys pressed with ${COMMAND_KEYS} appear. Typed text, including passwords, is never shown.`
-    : mac ? 'Everything you type appears on screen. Password fields stay hidden.' : 'Everything you type appears on screen, including passwords.');
+    ? `Only keys pressed with ${COPY.commandKeys} appear. Typed text, including passwords, is never shown.`
+    : COPY.allKeys);
 </script>
 
 <svelte:window onkeydown={event => { if (event.key === 'Escape') { event.preventDefault(); run('close-settings'); } }}/>
@@ -90,11 +94,11 @@
             <button class="switch" role="switch" aria-checked={session.enabled} aria-labelledby="enabled-label" onclick={() => run('toggle')}><span></span></button>
           </div>
           <div class="row">
-            <span class="row-label" id="login-label">{mac ? 'Open at login' : 'Start with Windows'}<small>Glassview starts in the {mac ? 'menu bar' : 'tray'}</small></span>
+            <span class="row-label" id="login-label">{COPY.login}<small>Glassview starts in the {COPY.home}</small></span>
             <button class="switch" role="switch" aria-checked={session.launchAtLogin} aria-labelledby="login-label" onclick={() => run('toggle-launch-at-login')}><span></span></button>
           </div>
         </div>
-        {#if session.shortcutUnavailable}<p class="note warning" role="alert">Another app is using {session.shortcut}, so it can’t toggle Glassview. Use the {mac ? 'menu bar' : 'tray'} icon instead.</p>{/if}
+        {#if session.shortcutUnavailable}<p class="note warning" role="alert">Another app is using {session.shortcut}, so it can’t toggle Glassview. Use the {COPY.home} icon instead.</p>{/if}
 
         {#if session.keyAccess !== 'granted' || session.grantedWhileRunning}
           <section class="card" aria-labelledby="access-title">
@@ -168,7 +172,7 @@
               <button class:chosen={preferences.keys === mode.id} aria-pressed={preferences.keys === mode.id} onclick={() => update({ keys: mode.id })}>{mode.label}</button>
             {/each}
           </div>
-          <p class="note" class:warning={preferences.keys === 'all'}>{keyNote}{mac ? '' : ' Apps running as administrator can’t be seen.'}</p>
+          <p class="note" class:warning={preferences.keys === 'all'}>{keyNote}{COPY.unseen}</p>
           <div class="list">
             <div class="row"><span class="row-label" id="size-label">Pill size</span>
               <div class="segmented compact" role="group" aria-labelledby="size-label">
