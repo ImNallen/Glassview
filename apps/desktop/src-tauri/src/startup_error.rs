@@ -46,5 +46,24 @@ fn show_native(details: &str) {
     }
 }
 
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[cfg(target_os = "linux")]
+fn show_native(details: &str) {
+    use gtk::prelude::*;
+    if !gtk::is_initialized_main_thread() {
+        return;
+    }
+    let dialog = gtk::MessageDialog::new(
+        None::<&gtk::Window>,
+        gtk::DialogFlags::MODAL,
+        gtk::MessageType::Error,
+        gtk::ButtonsType::Ok,
+        TITLE,
+    );
+    dialog.set_title(TITLE);
+    dialog.set_secondary_text(Some(details));
+    dialog.run();
+    dialog.close();
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
 fn show_native(_details: &str) {}
