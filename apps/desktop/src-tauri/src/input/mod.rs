@@ -1,3 +1,5 @@
+#[cfg(target_os = "linux")]
+mod linux;
 #[cfg(target_os = "macos")]
 mod macos;
 #[cfg(target_os = "windows")]
@@ -37,6 +39,10 @@ impl Gate {
             KeyMode::Shortcuts
         }
     }
+    #[cfg(target_os = "linux")]
+    pub(crate) fn halo(&self) -> bool {
+        self.halo.load(Relaxed)
+    }
 }
 
 pub(crate) struct Sink {
@@ -74,10 +80,15 @@ pub(crate) fn start(app: &tauri::AppHandle, sink: Sink) -> Result<()> {
         let _ = app;
         windows::start(sink)
     };
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    #[cfg(target_os = "linux")]
+    return {
+        let _ = app;
+        linux::start(sink)
+    };
+    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     {
         let _ = (app, sink);
-        Err("Glassview supports macOS and Windows".into())
+        Err("Glassview supports macOS, Windows, and Linux".into())
     }
 }
 

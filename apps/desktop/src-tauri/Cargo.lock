@@ -1359,6 +1359,7 @@ name = "glassview"
 version = "0.1.0"
 dependencies = [
  "block2",
+ "gtk",
  "log",
  "objc2",
  "objc2-app-kit",
@@ -1375,6 +1376,8 @@ dependencies = [
  "tauri-plugin-opener",
  "tauri-plugin-single-instance",
  "windows-sys 0.61.2",
+ "x11rb",
+ "xkeysym",
 ]
 
 [[package]]
