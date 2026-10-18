@@ -129,6 +129,8 @@ fn setup(app: &mut tauri::App) -> std::result::Result<(), Box<dyn std::error::Er
             .err()
             .map(|e| e.to_string()),
     );
+    #[cfg(target_os = "linux")]
+    problems.extend(overlays::watch_compositing(handle.clone()));
     problems.extend(
         input::start(&handle, Sink::new(gate, pipeline))
             .err()

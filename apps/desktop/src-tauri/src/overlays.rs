@@ -323,7 +323,7 @@ fn set_native_visible(window: &tauri::WebviewWindow, visible: bool) {
         }
     }
     #[cfg(target_os = "linux")]
-    if let Err(error) = if visible {
+    if let Err(error) = if visible && composited() {
         window.show()
     } else {
         window.hide()
@@ -335,6 +335,34 @@ fn set_native_visible(window: &tauri::WebviewWindow, visible: bool) {
     }
     #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     let _ = (window, visible);
+}
+
+#[cfg(target_os = "linux")]
+const NO_COMPOSITOR: &str = "Glassview needs a compositing window manager to draw over \
+     other windows. Turn on compositing in your window manager settings.";
+
+/// Without a compositor X11 ignores the overlays' alpha and each one covers its
+/// display in black, so overlays stay hidden until a compositor runs.
+#[cfg(target_os = "linux")]
+fn composited() -> bool {
+    gtk::gdk::Screen::default().is_some_and(|screen| screen.is_composited())
+}
+
+#[cfg(target_os = "linux")]
+pub(crate) fn watch_compositing(app: tauri::AppHandle) -> Option<String> {
+    let screen = gtk::gdk::Screen::default()?;
+    screen.connect_composited_changed(move |screen| {
+        if let Err(error) = commands::apply(&app) {
+            report(&app, error);
+        }
+        if !screen.is_composited() {
+            report(&app, NO_COMPOSITOR);
+            if let Err(error) = commands::perform(&app, crate::session::Action::OpenSettings) {
+                report(&app, error);
+            }
+        }
+    });
+    (!screen.is_composited()).then(|| NO_COMPOSITOR.into())
 }
 
 pub(crate) fn anchor_settings(app: &tauri::AppHandle, window: &tauri::WebviewWindow) -> Result<()> {

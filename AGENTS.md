@@ -13,9 +13,11 @@ Root scripts forward to the workspace: `npm run desktop <script>`. `npm run chec
 
 Glassview runs on macOS, Windows, and Linux with X11. On Linux it watches
 input through XInput2 raw events on the root window (`input/linux.rs`), so it
-needs a `DISPLAY`; a Wayland session without X11 gets a startup problem in
-Settings instead of ripples. Overlays are GTK dock-type windows so the window
-manager places them at the display origin instead of inside the work area.
+needs a `DISPLAY`. A Wayland session gets a startup problem in Settings instead
+of ripples, even when XWayland sets `DISPLAY`, because XWayland only sees input
+aimed at X11 windows. Overlays are GTK dock-type windows so the window manager
+places them at the display origin instead of inside the work area, and they stay
+hidden while no compositor runs, since X11 would draw them opaque.
 
 The environment install refreshes rustup stable and installs the Tauri Linux
 libraries from the Tauri v2 prerequisites (`libwebkit2gtk-4.1-dev` and the
