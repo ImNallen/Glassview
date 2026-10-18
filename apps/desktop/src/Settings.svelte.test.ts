@@ -95,6 +95,7 @@ it('starts on General and navigates tabs with wrapping focus and reset scrolling
 });
 
 it('saves key mode, pill sizes, and pill fonts with the current session preferences', async () => {
+  vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Windows NT 10.0');
   await open();
   select('Keys');
   expect(document.body.textContent).toContain('Typed text, including passwords, is never shown.');
@@ -192,9 +193,20 @@ it('keeps platform privacy notes and shortcut conflict advice', async () => {
   select('Keys');
   expect(document.body.textContent).toContain('Password fields stay hidden.');
   expect(document.body.textContent).not.toContain('administrator');
-  vi.restoreAllMocks();
+  vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('X11; Linux x86_64');
   await open({ shortcutUnavailable: true, shortcut: 'Ctrl+Alt+Shift+K' });
   expect(document.body.textContent).toContain('Use the tray icon instead.');
+  expect(document.body.textContent).toContain('Open at login');
+  expect(document.body.textContent).toContain('Glassview starts in the tray');
+  select('Keys');
+  expect(document.body.textContent).toContain('Only keys pressed with Ctrl, Alt, or Super appear.');
+  expect(document.body.textContent).not.toContain('administrator');
+  vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Windows NT 10.0');
+  await open({ shortcutUnavailable: true, shortcut: 'Ctrl+Alt+Shift+K' });
+  expect(document.body.textContent).toContain('Use the tray icon instead.');
+  select('Keys');
+  expect(document.body.textContent).toContain('Only keys pressed with Ctrl, Alt, or Win appear.');
+  expect(document.body.textContent).toContain('Apps running as administrator can’t be seen.');
 });
 
 it('toggles through the shared action and closes with Close or Escape, and quits from any tab', async () => {
@@ -212,6 +224,7 @@ it('toggles through the shared action and closes with Close or Escape, and quits
 });
 
 it('reflects launch at login from the session and changes it only through the native action', async () => {
+  vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Windows NT 10.0');
   await open({ launchAtLogin: true });
   const login = document.querySelector<HTMLButtonElement>('[aria-labelledby="login-label"]')!;
   expect(login.getAttribute('aria-checked')).toBe('true');

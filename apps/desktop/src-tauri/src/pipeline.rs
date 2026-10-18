@@ -49,6 +49,17 @@ impl Button {
             _ => None,
         }
     }
+    #[cfg(any(target_os = "linux", test))]
+    pub(crate) fn from_x11(detail: u32) -> Option<Self> {
+        match detail {
+            1 => Some(Self::Left),
+            2 => Some(Self::Middle),
+            3 => Some(Self::Right),
+            8 => Some(Self::Back),
+            9 => Some(Self::Forward),
+            _ => None,
+        }
+    }
 }
 
 /// Positive `dy` scrolls toward the top of the document and positive `dx` toward its
@@ -57,6 +68,19 @@ impl Button {
 pub(crate) struct ScrollDelta {
     pub(crate) dx: f64,
     pub(crate) dy: f64,
+}
+impl ScrollDelta {
+    #[cfg(any(target_os = "linux", test))]
+    pub(crate) fn from_x11_wheel(detail: u32) -> Option<Self> {
+        let (dx, dy) = match detail {
+            4 => (0.0, 1.0),
+            5 => (0.0, -1.0),
+            6 => (-1.0, 0.0),
+            7 => (1.0, 0.0),
+            _ => return None,
+        };
+        Some(Self { dx, dy })
+    }
 }
 
 /// The way the view moves through the document.
@@ -718,6 +742,28 @@ mod tests {
         assert_eq!(Button::from_x_button(1), Some(Button::Back));
         assert_eq!(Button::from_x_button(2), Some(Button::Forward));
         assert_eq!(Button::from_x_button(0), None);
+        for (detail, button) in [
+            (1, Button::Left),
+            (2, Button::Middle),
+            (3, Button::Right),
+            (8, Button::Back),
+            (9, Button::Forward),
+        ] {
+            assert_eq!(Button::from_x11(detail), Some(button));
+            assert_eq!(ScrollDelta::from_x11_wheel(detail), None);
+        }
+        for (detail, direction) in [
+            (4, ScrollDirection::Up),
+            (5, ScrollDirection::Down),
+            (6, ScrollDirection::Left),
+            (7, ScrollDirection::Right),
+        ] {
+            assert_eq!(Button::from_x11(detail), None);
+            let delta = ScrollDelta::from_x11_wheel(detail).expect("a wheel button");
+            assert_eq!(ScrollDirection::of(delta), Some(direction));
+        }
+        assert_eq!(Button::from_x11(0), None);
+        assert_eq!(ScrollDelta::from_x11_wheel(10), None);
     }
 
     #[test]

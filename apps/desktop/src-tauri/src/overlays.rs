@@ -155,9 +155,6 @@ fn build_overlay(app: &tauri::AppHandle, index: usize) -> Result<tauri::WebviewW
     .focused(false)
     .visible(false)
     .build()?;
-    // tao on GTK unwraps the gdk window when applying a click-through region.
-    // That window does not exist until the overlay is realized, so the call
-    // aborts the process on Linux. macOS and Windows realize it in time.
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     window.set_ignore_cursor_events(true)?;
     #[cfg(target_os = "macos")]
@@ -213,7 +210,29 @@ fn configure_native(window: &tauri::WebviewWindow) {
             );
         }
     }
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    // tao applies the click-through region to the GDK window, which GTK creates
+    // when it realizes the toplevel, and unwraps it before then. It is applied
+    // on every map: the window manager frames a re-shown window anew and only
+    // learns the region from the ShapeNotify that setting it sends.
+    #[cfg(target_os = "linux")]
+    if let Ok(gtk_window) = window.gtk_window() {
+        use gtk::prelude::*;
+        // xfwm4 keeps normal and notification windows inside the work area, so
+        // a panel would push the overlay down. Docks go where asked, on every
+        // workspace, above normal windows.
+        gtk_window.set_type_hint(gtk::gdk::WindowTypeHint::Dock);
+        let overlay = window.clone();
+        let click_through = move |_: &gtk::ApplicationWindow| {
+            if let Err(error) = overlay.set_ignore_cursor_events(true) {
+                log::warn!("Overlay {} keeps clicks: {error}", overlay.label());
+            }
+        };
+        if gtk_window.is_mapped() {
+            click_through(&gtk_window);
+        }
+        gtk_window.connect_map(click_through);
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     let _ = window;
 }
 
@@ -233,11 +252,14 @@ fn place(window: &tauri::WebviewWindow, bounds: Rect) -> Result<()> {
             PhysicalSize::new(bounds.width as u32, bounds.height as u32),
         );
         // Moving onto a display with another scale resizes the window (WM_DPICHANGED),
-        // so check where it landed and apply both again once if needed.
+        // so check where it landed and apply both again once if needed. GTK applies
+        // geometry later, once the window manager answers, so there is nothing to check.
         for attempt in 0..2 {
             window.set_position(position)?;
             window.set_size(size)?;
-            if window.outer_position()? == position && window.outer_size()? == size {
+            if cfg!(target_os = "linux")
+                || (window.outer_position()? == position && window.outer_size()? == size)
+            {
                 return Ok(());
             }
             if attempt == 1 {
@@ -300,8 +322,47 @@ fn set_native_visible(window: &tauri::WebviewWindow, visible: bool) {
             );
         }
     }
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    #[cfg(target_os = "linux")]
+    if let Err(error) = if visible && composited() {
+        window.show()
+    } else {
+        window.hide()
+    } {
+        log::warn!(
+            "Could not change overlay {} visibility: {error}",
+            window.label()
+        );
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     let _ = (window, visible);
+}
+
+#[cfg(target_os = "linux")]
+const NO_COMPOSITOR: &str = "Glassview needs a compositing window manager to draw over \
+     other windows. Turn on compositing in your window manager settings.";
+
+/// Without a compositor X11 ignores the overlays' alpha and each one covers its
+/// display in black, so overlays stay hidden until a compositor runs.
+#[cfg(target_os = "linux")]
+fn composited() -> bool {
+    gtk::gdk::Screen::default().is_some_and(|screen| screen.is_composited())
+}
+
+#[cfg(target_os = "linux")]
+pub(crate) fn watch_compositing(app: tauri::AppHandle) -> Option<String> {
+    let screen = gtk::gdk::Screen::default()?;
+    screen.connect_composited_changed(move |screen| {
+        if let Err(error) = commands::apply(&app) {
+            report(&app, error);
+        }
+        if !screen.is_composited() {
+            report(&app, NO_COMPOSITOR);
+            if let Err(error) = commands::perform(&app, crate::session::Action::OpenSettings) {
+                report(&app, error);
+            }
+        }
+    });
+    (!screen.is_composited()).then(|| NO_COMPOSITOR.into())
 }
 
 pub(crate) fn anchor_settings(app: &tauri::AppHandle, window: &tauri::WebviewWindow) -> Result<()> {

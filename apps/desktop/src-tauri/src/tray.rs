@@ -77,6 +77,18 @@ pub(crate) fn create_tray(app: &tauri::App) -> tauri::Result<()> {
     )?;
     let separator = PredefinedMenuItem::separator(app)?;
     let menu = Menu::with_items(app, &[&toggle, &separator, &quit])?;
+    // AppIndicator reports no clicks on the icon itself, only menu picks.
+    #[cfg(target_os = "linux")]
+    menu.insert(
+        &MenuItem::with_id(
+            app,
+            menu_id(Action::OpenSettings),
+            "Settings…",
+            true,
+            None::<&str>,
+        )?,
+        1,
+    )?;
     tauri::tray::TrayIconBuilder::with_id(TRAY_ID)
         .icon(icon(true))
         .icon_as_template(cfg!(target_os = "macos"))

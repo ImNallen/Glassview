@@ -11,8 +11,13 @@ Root scripts forward to the workspace: `npm run desktop <script>`. `npm run chec
 
 ## Cloud agents
 
-Glassview's native window runs on macOS and Windows. On Linux, use the checks
-below and the Vite settings page.
+Glassview runs on macOS, Windows, and Linux with X11. On Linux it watches
+input through XInput2 raw events on the root window (`input/linux.rs`), so it
+needs a `DISPLAY`. A Wayland session gets a startup problem in Settings instead
+of ripples, even when XWayland sets `DISPLAY`, because XWayland only sees input
+aimed at X11 windows. Overlays are GTK dock-type windows so the window manager
+places them at the display origin instead of inside the work area, and they stay
+hidden while no compositor runs, since X11 would draw them opaque.
 
 The environment install refreshes rustup stable and installs the Tauri Linux
 libraries from the Tauri v2 prerequisites (`libwebkit2gtk-4.1-dev` and the
@@ -27,10 +32,11 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 ```
 
 `cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml -- -D warnings`
-matches CI on macOS and Windows. On Linux it reports dead code in input paths
-that only those systems call.
+matches CI and passes on all three systems.
 
 The settings UI is `http://127.0.0.1:1420/?surface=settings`. The environment
 start script serves it with `npm run dev` in `apps/desktop` (Vite, strict port
-1420). `npm run desktop tauri dev` is the macOS and Windows app; on Linux the
-process leaves the GTK event loop while configuring the click-through overlay.
+1420). `npm run desktop tauri dev` runs the app against that server on every
+system. On a headless Linux box, drive the X11 display with `xdotool` and
+capture it with `scrot`: a left click draws a ring at the pointer and a
+shortcut such as `ctrl+shift+p` shows the key pill.
