@@ -252,13 +252,14 @@ fn place(window: &tauri::WebviewWindow, bounds: Rect) -> Result<()> {
             PhysicalSize::new(bounds.width as u32, bounds.height as u32),
         );
         // Moving onto a display with another scale resizes the window (WM_DPICHANGED),
-        // so check where it landed and apply both again once if needed. GTK has no
-        // geometry for a hidden window and applies both when it maps.
+        // so check where it landed and apply both again once if needed. GTK applies
+        // geometry later, once the window manager answers, so there is nothing to check.
         for attempt in 0..2 {
             window.set_position(position)?;
             window.set_size(size)?;
-            let unmapped = cfg!(target_os = "linux") && !window.is_visible()?;
-            if unmapped || (window.outer_position()? == position && window.outer_size()? == size) {
+            if cfg!(target_os = "linux")
+                || (window.outer_position()? == position && window.outer_size()? == size)
+            {
                 return Ok(());
             }
             if attempt == 1 {
